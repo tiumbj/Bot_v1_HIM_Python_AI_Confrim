@@ -1,18 +1,19 @@
 """
 Hybrid Intelligence Mentor (HIM) Trading Engine
-Version: 2.6.1
+Version: 2.6.3
 
 Changelog:
-- 2.6.1 (2026-02-26):
-  - P0 FIX: proximity_score() no longer calls safe_float(..., None) which could crash (float(None))
-  - Use MT5 tick ask/bid for entry_candidate (market execution pricing owner)
-  - Keep v2.6.0 contract fields and config_resolver integration
+- 2.6.3 (2026-02-26):
+  - Add explicit conflict blocking:
+      * if LTF breakout confirmed opposite to HTF bias direction -> blocked_by includes "counter_breakout"
+  - Add watch_state:
+      * WATCH_COUNTER_BREAKOUT when opposite breakout exists
+      * WATCH_PROXIMITY when within proximity threshold
+  - Keep: contract gating (blocked -> direction NONE and candidates None)
+  - Keep: proximity_score crash fix
 
-Design Rules (Commissioning):
-- Engine is the pricing owner: computes entry/SL/TP candidates
-- AI is confirm-only (must not change prices) [enforced elsewhere]
-- Executor enforces safety + risk (later steps)
-- supertrend_ok remains placeholder True (explicit)
+Notes:
+- This change improves audit clarity (why NONE), not signal frequency.
 """
 
 from __future__ import annotations
@@ -32,9 +33,6 @@ class TradingEngine:
         self.config_path = config_path
         self.cfg = self.load_config()
 
-    # =========================
-    # SAFE CONVERSION
-    # =========================
     @staticmethod
     def safe_float(v: Any, default: float = 0.0) -> float:
         if v is None:
@@ -57,9 +55,6 @@ class TradingEngine:
     def clamp(x: float, lo: float, hi: float) -> float:
         return float(max(lo, min(hi, x)))
 
-    # =========================
-    # CONFIG
-    # =========================
     def load_config(self) -> Dict[str, Any]:
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
@@ -74,9 +69,6 @@ class TradingEngine:
         self.cfg = self.load_config()
         return self.cfg
 
-    # =========================
-    # MT5 READY
-    # =========================
     def ensure_mt5(self) -> Tuple[bool, str]:
         try:
             if mt5.terminal_info() is not None:
@@ -94,9 +86,6 @@ class TradingEngine:
             raise RuntimeError(f"tick_none: {symbol} last_error={mt5.last_error()}")
         return tick
 
-    # =========================
-    # TF MAP
-    # =========================
     def tf(self, name: str):
         mapping = {
             "M5": mt5.TIMEFRAME_M5,
@@ -109,9 +98,6 @@ class TradingEngine:
         key = str(name).upper().strip()
         return mapping.get(key, mt5.TIMEFRAME_M15)
 
-    # =========================
-    # DATA
-    # =========================
     def get_data(self, symbol: str, timeframe, bars: int):
         ok, msg = self.ensure_mt5()
         if not ok:
@@ -138,9 +124,6 @@ class TradingEngine:
             raise RuntimeError(f"not_enough_bars: got={len(rates)} need>=200 symbol={symbol} tf={timeframe}")
         return rates
 
-    # =========================
-    # ATR (EMA-style)
-    # =========================
     def atr(self, high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int) -> np.ndarray:
         period = max(1, int(period))
         prev_close = np.roll(close, 1)
@@ -153,9 +136,6 @@ class TradingEngine:
             out[i] = out[i - 1] * (1 - alpha) + tr[i] * alpha
         return out
 
-    # =========================
-    # STRUCTURE (pivots)
-    # =========================
     def structure(self, data, sens: int) -> Tuple[str, Optional[float], Optional[float]]:
         high = data["high"]
         low = data["low"]
@@ -181,9 +161,6 @@ class TradingEngine:
 
         return trend, last_hi, last_lo
 
-    # =========================
-    # PROXIMITY (P0 FIX)
-    # =========================
     def proximity_score(self, dist_buy: Optional[float], dist_sell: Optional[float], threshold_points: float):
         thr = max(self.safe_float(threshold_points, 0.0), 1e-9)
         best: Optional[float] = None
@@ -214,9 +191,6 @@ class TradingEngine:
         score = 100.0 * max(0.0, min(1.0, (thr - best) / thr))
         return float(score), side, float(best)
 
-    # =========================
-    # SCORING (0-10) + CONF (0-100)
-    # =========================
     def compute_score_0_10(
         self,
         direction: str,
@@ -230,7 +204,6 @@ class TradingEngine:
     ) -> float:
         s = 0.0
 
-        # Trend alignment (HTF only in this version)
         align = 0.0
         if direction == "BUY" and htf_trend == "bullish":
             align = 1.0
@@ -238,17 +211,13 @@ class TradingEngine:
             align = 1.0
         s += 2.0 * align
 
-        # BOS
         s += 2.5 if bos else 0.0
 
-        # Proximity
         ps = self.clamp(self.safe_float(prox_score_0_100, 0.0) / 100.0, 0.0, 1.0)
         s += 2.0 * ps
 
-        # Retest
         s += 1.5 if retest_ok else 0.0
 
-        # Overshoot grading
         og = 0.0
         if overshoot_points is not None:
             thr = max(self.safe_float(threshold_points, 0.0), 1e-9)
@@ -256,7 +225,6 @@ class TradingEngine:
             og = 1.0 - self.clamp(ratio / 2.0, 0.0, 1.0)
         s += 1.0 * og
 
-        # Penalty
         if blocked:
             s -= 3.0
 
@@ -274,9 +242,6 @@ class TradingEngine:
             bonus += 4.0
         return int(round(self.clamp(base + bonus, 0.0, 100.0)))
 
-    # =========================
-    # MAIN
-    # =========================
     def generate_signal_package(self) -> Dict[str, Any]:
         cfg = self.reload_config()
 
@@ -285,20 +250,20 @@ class TradingEngine:
         sens_cfg = cfg.get("structure_sensitivity", {}) or {}
         risk_cfg = cfg.get("risk", {}) or {}
         prox_cfg = cfg.get("breakout_proximity", {}) or {}
-
         entry_cfg = cfg.get("entry_model", {}) or {}
+
         retest_atr_mult = self.safe_float(entry_cfg.get("retest_atr_mult"), 0.35)
 
-        min_rr = self.safe_float(cfg.get("min_rr", 1.7), 1.7)
+        min_rr = self.safe_float(cfg.get("min_rr", 2.0), 2.0)
         atr_sl_mult = self.safe_float(risk_cfg.get("atr_sl_mult"), 1.8)
 
-        htf = str(tf_cfg.get("htf", "H1"))
-        mtf = str(tf_cfg.get("mtf", "M30"))
+        htf = str(tf_cfg.get("htf", "H4"))
+        mtf = str(tf_cfg.get("mtf", "H1"))
         ltf = str(tf_cfg.get("ltf", "M15"))
 
-        sens_htf = self.safe_int(sens_cfg.get("htf"), 4)
-        sens_mtf = self.safe_int(sens_cfg.get("mtf"), 3)
-        sens_ltf = self.safe_int(sens_cfg.get("ltf"), 1)
+        sens_htf = self.safe_int(sens_cfg.get("htf"), 5)
+        sens_mtf = self.safe_int(sens_cfg.get("mtf"), 4)
+        sens_ltf = self.safe_int(sens_cfg.get("ltf"), 3)
 
         atr_period = self.safe_int(risk_cfg.get("atr_period"), 14)
         prox_min_score = self.safe_float(prox_cfg.get("min_score"), 40.0)
@@ -307,6 +272,7 @@ class TradingEngine:
         threshold_points_fallback = prox_cfg.get("threshold", None)
 
         blocked_reasons = []
+        watch_state = "NONE"
 
         try:
             htf_data = self.get_data(symbol, self.tf(htf), 600)
@@ -316,14 +282,14 @@ class TradingEngine:
             return {
                 "symbol": symbol,
                 "direction": "NONE",
-                "score": 0.0,
+                "entry_candidate": None,
+                "stop_candidate": None,
+                "tp_candidate": None,
                 "rr": 0.0,
+                "score": 0.0,
                 "confidence_py": 0,
                 "bos": False,
                 "supertrend_ok": True,
-                "entry_candidate": 0.0,
-                "stop_candidate": 0.0,
-                "tp_candidate": 0.0,
                 "context": {
                     "blocked_by": "no_data",
                     "error": str(e),
@@ -355,7 +321,6 @@ class TradingEngine:
         close = np.asarray(ltf_data["close"], dtype=float)
         high = np.asarray(ltf_data["high"], dtype=float)
         low = np.asarray(ltf_data["low"], dtype=float)
-
         ltf_close = float(close[-1])
 
         atr_arr = self.atr(high, low, close, atr_period)
@@ -388,10 +353,20 @@ class TradingEngine:
             breakout_side = "SELL"
             breakout_overshoot_points = float(abs(dist_sell))
 
+        # Conflict block: opposite breakout exists vs bias direction
+        if breakout_side in ("BUY", "SELL") and direction in ("BUY", "SELL") and breakout_side != direction:
+            blocked_reasons.append("counter_breakout")
+            watch_state = "WATCH_COUNTER_BREAKOUT"
+
         bos = bool(breakout_side == direction and breakout_state.startswith("BREAKOUT_"))
 
         prox_score, prox_side, prox_best_dist = self.proximity_score(dist_buy, dist_sell, threshold_points)
 
+        # Watch proximity (even if not trade)
+        if watch_state == "NONE" and prox_score >= prox_min_score and prox_side in ("BUY", "SELL"):
+            watch_state = "WATCH_PROXIMITY"
+
+        # Retest
         bos_ref = None
         if direction == "BUY":
             bos_ref = bos_hi
@@ -403,6 +378,7 @@ class TradingEngine:
         if bos_ref is not None and direction in ("BUY", "SELL"):
             retest_ok = bool(abs(ltf_close - float(bos_ref)) <= retest_band)
 
+        # BOS proximity requirement
         if direction == "BUY":
             if bos_hi is None:
                 blocked_reasons.append("no_bos_ref_high")
@@ -413,69 +389,58 @@ class TradingEngine:
                 blocked_reasons.append("no_bos_ref_low")
             if dist_sell is not None and dist_sell >= 0 and dist_sell > threshold_points:
                 blocked_reasons.append("no_bos")
+        else:
+            blocked_reasons.append("direction_none")
 
         blocked = bool(len(blocked_reasons) > 0)
 
-        # -------------------------
-        # Trade-ready candidates (pricing owner) using tick
-        # -------------------------
-        tick = self.get_tick(symbol)
-
-        if direction == "BUY":
-            entry_candidate = float(tick.ask)
-        elif direction == "SELL":
-            entry_candidate = float(tick.bid)
-        else:
-            entry_candidate = float(ltf_close)
-
-        sl_dist = float(max(atr_val * atr_sl_mult, 1e-9))
-
-        if direction == "BUY":
-            stop_candidate = float(entry_candidate - sl_dist)
-            tp_candidate = float(entry_candidate + sl_dist * float(max(min_rr, 0.1)))
-        elif direction == "SELL":
-            stop_candidate = float(entry_candidate + sl_dist)
-            tp_candidate = float(entry_candidate - sl_dist * float(max(min_rr, 0.1)))
-        else:
-            stop_candidate = 0.0
-            tp_candidate = 0.0
-
-        rr = 0.0
-        if direction == "BUY":
-            risk = entry_candidate - stop_candidate
-            reward = tp_candidate - entry_candidate
-            rr = float(reward / risk) if risk > 1e-9 else 0.0
-        elif direction == "SELL":
-            risk = stop_candidate - entry_candidate
-            reward = entry_candidate - tp_candidate
-            rr = float(reward / risk) if risk > 1e-9 else 0.0
-
         align = bool((direction == "BUY" and htf_trend == "bullish") or (direction == "SELL" and htf_trend == "bearish"))
-
         score_0_10 = self.compute_score_0_10(
-            direction=direction if direction in ("BUY", "SELL") else "NONE",
+            direction=direction,
             htf_trend=htf_trend,
             bos=bos,
             prox_score_0_100=prox_score,
             retest_ok=retest_ok,
             overshoot_points=breakout_overshoot_points,
             threshold_points=threshold_points,
-            blocked=(direction not in ("BUY", "SELL")) or blocked,
+            blocked=blocked,
         )
-
         confidence_py = self.compute_confidence_0_100(score_0_10, bos=bos, retest_ok=retest_ok, align=align)
 
         supertrend_ok = True
         supertrend_label = "PLACEHOLDER"
 
-        direction_out = direction if direction in ("BUY", "SELL") else "NONE"
+        if blocked:
+            direction_out = "NONE"
+            entry_candidate = None
+            stop_candidate = None
+            tp_candidate = None
+            rr = 0.0
+        else:
+            direction_out = direction
+            tick = self.get_tick(symbol)
+            entry_candidate = float(tick.ask if direction_out == "BUY" else tick.bid)
+
+            sl_dist = float(max(atr_val * atr_sl_mult, 1e-9))
+            if direction_out == "BUY":
+                stop_candidate = float(entry_candidate - sl_dist)
+                tp_candidate = float(entry_candidate + sl_dist * float(max(min_rr, 0.1)))
+                risk = entry_candidate - stop_candidate
+                reward = tp_candidate - entry_candidate
+                rr = float(reward / risk) if risk > 1e-9 else 0.0
+            else:
+                stop_candidate = float(entry_candidate + sl_dist)
+                tp_candidate = float(entry_candidate - sl_dist * float(max(min_rr, 0.1)))
+                risk = stop_candidate - entry_candidate
+                reward = entry_candidate - tp_candidate
+                rr = float(reward / risk) if risk > 1e-9 else 0.0
 
         return {
             "symbol": symbol,
             "direction": direction_out,
-            "entry_candidate": float(entry_candidate),
-            "stop_candidate": float(stop_candidate),
-            "tp_candidate": float(tp_candidate),
+            "entry_candidate": entry_candidate,
+            "stop_candidate": stop_candidate,
+            "tp_candidate": tp_candidate,
             "rr": float(rr),
             "score": float(score_0_10),
             "confidence_py": int(confidence_py),
@@ -519,6 +484,7 @@ class TradingEngine:
                 "supertrend": supertrend_label,
                 "supertrend_ok": bool(supertrend_ok),
 
+                "watch_state": watch_state,
                 "blocked_by": ",".join(blocked_reasons) if blocked_reasons else None,
 
                 "timeframes": {"htf": htf, "mtf": mtf, "ltf": ltf},
