@@ -114,11 +114,11 @@
   },
   
   "breakout": {
-  "confirm_buffer_atr": 0.10,
+  "confirm_buffer_atr": 0.05,
   "require_retest": true,
-  "retest_band_atr": 0.25,
-  "proximity_threshold_atr": 1.30,
-  "proximity_min_score": 12
+  "retest_band_atr": 0.30,
+  "proximity_threshold_atr": 1.50,
+  "proximity_min_score": 10
 },
   
   "telegram": {
