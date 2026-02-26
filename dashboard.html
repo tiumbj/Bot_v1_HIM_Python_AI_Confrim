@@ -1,720 +1,162 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>HIM — Intelligent Dashboard</title>
-
-  <!--
-  dashboard.html
-  Version: 1.2.0
-  Changelog:
-  - 1.2.0: Add Telegram status pill + show Telegram readiness reason in UI
-           (reads from /api/status.telegram and /api/telegram_test response)
-  - 1.1.0: Professional layout (KPI cards, system status, signal trace, trades table)
-  API contracts expected:
-  - GET  /api/config
-  - POST /api/config
-  - POST /api/mode/A|B|C
-  - GET  /api/status       (includes mt5, price, ai, telegram)
-  - GET  /api/signal_preview
-  - GET  /api/performance
-  - POST /api/telegram_test
-  -->
-
   <style>
-    :root{
-      --bg:#0b1220;
-      --panel:#0f1a2e;
-      --panel2:#101f3a;
-      --border:rgba(255,255,255,.08);
-      --text:#e6eefc;
-      --muted:#9fb2d8;
-      --good:#28d17c;
-      --bad:#ff5c7a;
-      --warn:#ffcc66;
-      --accent:#7aa7ff;
-      --shadow: 0 10px 30px rgba(0,0,0,.25);
-      --radius: 14px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans Thai", sans-serif;
-    }
-
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:var(--sans);
-      color:var(--text);
-      background: radial-gradient(1200px 600px at 20% -10%, rgba(122,167,255,.25), transparent 60%),
-                  radial-gradient(1200px 600px at 100% 10%, rgba(40,209,124,.15), transparent 60%),
-                  var(--bg);
-    }
-
-    .container{max-width:1220px; margin: 18px auto; padding: 0 14px;}
-    .topbar{
-      display:flex; align-items:center; justify-content:space-between;
-      padding: 14px 16px;
-      border:1px solid var(--border);
-      border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-      box-shadow: var(--shadow);
-      gap: 12px;
-    }
-
-    .brand{
-      display:flex; flex-direction:column; gap:2px;
-      min-width: 280px;
-    }
-    .brand .title{font-size:18px; font-weight:700; letter-spacing:.2px}
-    .brand .subtitle{font-size:12px; color:var(--muted)}
-    .right{
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;
-    }
-
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding: 8px 10px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.03);
-      font-size:12px;
-      color:var(--muted);
-      white-space:nowrap;
-    }
-    .dot{width:8px; height:8px; border-radius:50%;}
-    .dot.good{background:var(--good)}
-    .dot.bad{background:var(--bad)}
-    .dot.warn{background:var(--warn)}
-    .dot.accent{background:var(--accent)}
-    .mono{font-family:var(--mono)}
-    .muted{color:var(--muted)}
-    .badge{
-      display:inline-flex; align-items:center; gap:8px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.03);
-      font-size:12px;
-    }
-    .badge.good{color:var(--good)}
-    .badge.bad{color:var(--bad)}
-    .badge.warn{color:var(--warn)}
-    .badge.accent{color:var(--accent)}
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 14px;
-      margin-top: 14px;
-    }
-    @media (max-width: 980px){
-      .grid{grid-template-columns:1fr}
-      .brand{min-width:unset}
-    }
-
-    .card{
-      border:1px solid var(--border);
-      border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-      box-shadow: var(--shadow);
-      padding: 14px;
-    }
-    .card h3{
-      margin:0 0 10px 0;
-      font-size: 14px;
-      letter-spacing:.2px;
-      color: rgba(230,238,252,.92);
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px;
-    }
-
-    .kpi{
-      display:grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-top: 14px;
-    }
-    @media (max-width: 980px){ .kpi{grid-template-columns: repeat(2, 1fr);} }
-    @media (max-width: 520px){ .kpi{grid-template-columns: 1fr;} }
-
-    .kpi .tile{
-      border:1px solid var(--border);
-      border-radius: 12px;
-      background: rgba(255,255,255,.03);
-      padding: 12px;
-      min-height: 74px;
-    }
-    .tile .label{font-size:11px; color:var(--muted)}
-    .tile .value{margin-top:6px; font-size:18px; font-weight:700}
-    .tile .sub{margin-top:4px; font-size:11px; color:var(--muted); font-family:var(--mono)}
-    .tile .value.good{color:var(--good)}
-    .tile .value.bad{color:var(--bad)}
-    .tile .value.accent{color:var(--accent)}
-    .tile .value.warn{color:var(--warn)}
-
-    .split{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    @media (max-width: 980px){ .split{grid-template-columns:1fr;} }
-
-    .controls{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    @media (max-width: 620px){ .controls{grid-template-columns:1fr;} }
-
-    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px;}
-    input, select{
-      width:100%;
-      padding:10px 10px;
-      border-radius: 10px;
-      border:1px solid var(--border);
-      background: rgba(0,0,0,.20);
-      color: var(--text);
-      outline:none;
-    }
-    input:focus, select:focus{border-color: rgba(122,167,255,.55); box-shadow: 0 0 0 3px rgba(122,167,255,.15)}
-    .btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px;}
-    button{
-      padding:10px 12px;
-      border-radius: 10px;
-      border:1px solid var(--border);
-      background: rgba(122,167,255,.14);
-      color: var(--text);
-      cursor:pointer;
-      font-weight:600;
-    }
-    button.secondary{background: rgba(255,255,255,.05)}
-    button.danger{background: rgba(255,92,122,.14)}
-    button:active{transform: translateY(1px)}
-    .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5}
-
-    table{
-      width:100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      overflow:hidden;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.02);
-    }
-    th, td{
-      padding:10px 10px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-      text-align:left;
-    }
-    th{color: rgba(230,238,252,.9); font-weight:700; background: rgba(255,255,255,.03)}
-    tr:last-child td{border-bottom:none}
-    .rowpos{color:var(--good); font-family:var(--mono)}
-    .rowneg{color:var(--bad); font-family:var(--mono)}
-    .rowmid{color:var(--muted); font-family:var(--mono)}
-
-    .pre{
-      font-family:var(--mono);
-      font-size: 11px;
-      padding: 10px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(0,0,0,.20);
-      overflow:auto;
-      max-height: 320px;
-      margin:0;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .section-title{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      margin: 0 0 10px 0;
-    }
-    .section-title .left{
-      display:flex; align-items:center; gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .small-note{
-      font-size:11px;
-      color: var(--muted);
-      font-family: var(--mono);
-      margin-top: 6px;
-      line-height: 1.4;
-    }
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; min-width: 280px; }
+    .title { font-weight: 700; margin-bottom: 8px; }
+    .kv { display: grid; grid-template-columns: 160px 1fr; gap: 6px 10px; }
+    .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    button { padding: 8px 10px; cursor: pointer; }
+    .mono { font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; }
+    input { padding: 6px; width: 100%; box-sizing: border-box; }
+    .ok { color: #0a7; font-weight: 700; }
+    .bad { color: #c00; font-weight: 700; }
+    .muted { color: #666; }
   </style>
 </head>
-
 <body>
-  <div class="container">
-    <div class="topbar">
-      <div class="brand">
-        <div class="title">Hybrid Intelligence Mentor (HIM)</div>
-        <div class="subtitle">Intelligent Dashboard — Professional View (UI v1.2.0)</div>
+  <h2>Hybrid Intelligence Mentor (HIM)</h2>
+  <div class="muted">Intelligent Dashboard — UI v1.3.0</div>
+
+  <div class="row" style="margin-top:12px;">
+    <div class="card">
+      <div class="title">System Status</div>
+      <div class="kv">
+        <div>Mode</div><div id="mode">-</div>
+        <div>Symbol</div><div id="symbol">-</div>
+        <div>Execution</div><div id="exec">-</div>
+        <div>Positions</div><div id="pos">-</div>
+        <div>MT5</div><div id="mt5">-</div>
+        <div>AI</div><div id="ai">-</div>
+        <div>Telegram</div><div id="tg">-</div>
       </div>
-
-      <div class="right">
-        <div class="pill" id="pill_mt5" title="MT5 connection status">
-          <span class="dot warn" id="dot_mt5"></span>
-          <span>MT5</span>
-          <span class="mono" id="mt5_text">checking…</span>
-        </div>
-
-        <div class="pill" id="pill_ai" title="AI API readiness (no API call)">
-          <span class="dot warn" id="dot_ai"></span>
-          <span>AI API</span>
-          <span class="mono" id="ai_text">checking…</span>
-        </div>
-
-        <div class="pill" id="pill_tg" title="Telegram readiness (no send)">
-          <span class="dot warn" id="dot_tg"></span>
-          <span>Telegram</span>
-          <span class="mono" id="tg_text">checking…</span>
-        </div>
-
-        <div class="pill" id="pill_price" title="Current price (Bid/Ask)">
-          <span class="dot accent"></span>
-          <span class="mono" id="price_symbol">GOLD</span>
-          <span class="mono" id="price_text">--</span>
-        </div>
-
-        <button class="secondary" onclick="refreshAll()">Refresh</button>
+      <div class="btns">
+        <button onclick="refreshAll()">Refresh</button>
+        <button onclick="previewSignal()">Preview Signal</button>
+        <button onclick="refreshPerformance()">Refresh Win/Loss</button>
+        <button onclick="telegramTest()">Telegram Test</button>
       </div>
     </div>
 
-    <!-- KPI ROW -->
-    <div class="kpi">
-      <div class="tile">
-        <div class="label">Buy/Sell Status</div>
-        <div class="value accent" id="kpi_signal">NONE</div>
-        <div class="sub" id="kpi_blocked">blocked_by: -</div>
+    <div class="card">
+      <div class="title">Control Panel</div>
+      <div class="kv">
+        <div>Symbol</div><div><input id="cfg_symbol" value="GOLD" /></div>
+        <div>Enable Execution</div><div><input id="cfg_exec" value="false" /></div>
+        <div>Confidence Threshold</div><div><input id="cfg_conf" value="75" /></div>
+        <div>Min Score</div><div><input id="cfg_score" value="7.0" /></div>
+        <div>Min RR</div><div><input id="cfg_rr" value="2.0" /></div>
+        <div>Lot</div><div><input id="cfg_lot" value="0.01" /></div>
+      </div>
+      <div class="btns">
+        <button onclick="saveConfig()">Save Config</button>
       </div>
 
-      <div class="tile">
-        <div class="label">Proximity / ETA</div>
-        <div class="value" id="kpi_prox">0</div>
-        <div class="sub" id="kpi_eta">eta: -</div>
+      <div class="title" style="margin-top:10px;">Modes (ปุ่มปรับกลยุทธ์)</div>
+      <div class="btns">
+        <button onclick="applyMode('precision')">โหมดเข้มงวด (Precision)</button>
+        <button onclick="applyMode('balanced')">โหมดสมดุล (Balanced)</button>
+        <button onclick="applyMode('frequent')">โหมดสัญญาณถี่ (Frequent)</button>
       </div>
-
-      <div class="tile">
-        <div class="label">Win / Loss (All)</div>
-        <div class="value" id="kpi_winloss">0 / 0</div>
-        <div class="sub" id="kpi_winrate">winrate: 0%</div>
-      </div>
-
-      <div class="tile">
-        <div class="label">Net Profit / PF</div>
-        <div class="value" id="kpi_net">0</div>
-        <div class="sub" id="kpi_pf">PF: 0</div>
-      </div>
-    </div>
-
-    <div class="grid">
-      <!-- LEFT -->
-      <div class="card">
-        <div class="section-title">
-          <div class="left">
-            <h3 style="margin:0">System Status</h3>
-            <span class="badge accent" id="badge_exec">Execution: Dry-run</span>
-            <span class="badge" id="badge_pos">Positions: 0</span>
-          </div>
-          <div class="muted mono" id="last_update">--</div>
-        </div>
-
-        <div class="split">
-          <div>
-            <h3>MT5 / Account</h3>
-            <div class="pre" id="mt5_box">loading…</div>
-          </div>
-          <div>
-            <h3>Signal Preview (Mentor Trace)</h3>
-            <div class="pre" id="signal_box">loading…</div>
-          </div>
-        </div>
-
-        <div style="height:12px"></div>
-
-        <h3>Win/Loss ล่าสุด (มีวันที่)</h3>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:170px">DateTime</th>
-              <th style="width:70px">Side</th>
-              <th style="width:80px">Vol</th>
-              <th style="width:130px">Net</th>
-              <th>Deal / Position</th>
-            </tr>
-          </thead>
-          <tbody id="trades_tbody">
-            <tr><td colspan="5" class="muted">loading…</td></tr>
-          </tbody>
-        </table>
-
-        <div class="hint">
-          แหล่งข้อมูล: MT5 history (deal close) → performance tracker → dashboard table<br/>
-          ถ้าระบบยังไม่เคยปิดดีล จะขึ้น “no trades”.
-        </div>
-      </div>
-
-      <!-- RIGHT -->
-      <div class="card">
-        <h3>Control Panel</h3>
-
-        <div class="controls">
-          <div>
-            <label>Symbol</label>
-            <input id="symbol" placeholder="GOLD"/>
-          </div>
-          <div>
-            <label>Enable Execution (จริง/จำลอง)</label>
-            <select id="enable_execution">
-              <option value="false">false (Dry-run)</option>
-              <option value="true">true (Execute)</option>
-            </select>
-          </div>
-
-          <div>
-            <label>Confidence Threshold (0..100)</label>
-            <input id="confidence_threshold" type="number" min="0" max="100" step="1"/>
-          </div>
-          <div>
-            <label>Minimum Score (0..10)</label>
-            <input id="min_score" type="number" min="0" max="10" step="0.1"/>
-          </div>
-
-          <div>
-            <label>Minimum RR</label>
-            <input id="min_rr" type="number" min="0.1" max="20" step="0.1"/>
-          </div>
-          <div>
-            <label>Lot</label>
-            <input id="lot" type="number" min="0.01" max="100" step="0.01"/>
-          </div>
-        </div>
-
-        <div style="height:12px"></div>
-
-        <h3>Modes</h3>
-        <div class="btnrow">
-          <button onclick="applyMode('A')">Precision</button>
-          <button onclick="applyMode('B')">Balanced</button>
-          <button onclick="applyMode('C')">Frequent</button>
-          <button class="secondary" onclick="saveConfig()">Save Config</button>
-        </div>
-        <div class="hint" id="mode_result">—</div>
-
-        <div style="height:12px"></div>
-
-        <h3>Actions</h3>
-        <div class="btnrow">
-          <button class="secondary" onclick="refreshStatus()">Refresh Status</button>
-          <button class="secondary" onclick="previewSignal()">Preview Signal</button>
-          <button class="secondary" onclick="refreshPerformance()">Refresh Win/Loss</button>
-          <button class="danger" onclick="telegramTest()">Telegram Test</button>
-        </div>
-
-        <div class="small-note" id="tg_help">
-          Telegram readiness: checking…
-        </div>
-
-        <div class="hint">
-          เป้าหมาย commissioning: ทำให้เห็น MT5 / AI / Price / Signal / WinLoss ในหน้าจอเดียว
-          แล้วค่อยขยับไป Auto/Paper execution.
-        </div>
+      <div class="muted" style="margin-top:6px;">
+        หมายเหตุ: รองรับ legacy A/B/C ด้วย (A=precision, B=balanced, C=frequent)
       </div>
     </div>
   </div>
 
+  <div class="row" style="margin-top:12px;">
+    <div class="card" style="flex:1; min-width: 520px;">
+      <div class="title">Signal Preview (Mentor Trace)</div>
+      <div id="preview" class="mono">loading…</div>
+    </div>
+
+    <div class="card" style="flex:1; min-width: 520px;">
+      <div class="title">Win/Loss ล่าสุด</div>
+      <div id="perf" class="mono">loading…</div>
+    </div>
+  </div>
+
 <script>
-async function apiGet(url){
+async function jget(url) {
   const r = await fetch(url);
-  if(!r.ok){
-    const t = await r.text().catch(()=> "");
-    throw new Error(url + " HTTP " + r.status + " " + t);
-  }
   return await r.json();
 }
-
-async function apiPost(url, body){
+async function jpost(url, body) {
   const r = await fetch(url, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {})
   });
-  if(!r.ok){
-    const t = await r.text().catch(()=> "");
-    throw new Error(url + " HTTP " + r.status + " " + t);
-  }
   return await r.json();
 }
 
-function dot(el, state){
-  el.classList.remove("good","bad","warn","accent");
-  el.classList.add(state);
+function boolText(ok) { return ok ? '<span class="ok">OK</span>' : '<span class="bad">FAIL</span>'; }
+
+async function refreshAll() {
+  const st = await jget('/api/status');
+
+  document.getElementById('mode').innerText = st.config.mode || '-';
+  document.getElementById('symbol').innerText = st.config.symbol || '-';
+  document.getElementById('exec').innerText = st.config.enable_execution ? 'true (Execute)' : 'false (Dry-run)';
+  document.getElementById('pos').innerText = (st.mt5 && st.mt5.positions_count != null) ? st.mt5.positions_count : '-';
+
+  document.getElementById('mt5').innerHTML = boolText(st.mt5 && st.mt5.mt5_ok);
+  document.getElementById('ai').innerHTML = boolText(st.ai && st.ai.ok);
+  document.getElementById('tg').innerHTML = boolText(st.telegram && st.telegram.ok);
+
+  // Load current config into inputs
+  const cfg = await jget('/api/config');
+  document.getElementById('cfg_symbol').value = cfg.symbol ?? 'GOLD';
+  document.getElementById('cfg_exec').value = String(cfg.enable_execution ?? false);
+  document.getElementById('cfg_conf').value = String(cfg.confidence_threshold ?? 75);
+  document.getElementById('cfg_score').value = String(cfg.min_score ?? 7.0);
+  document.getElementById('cfg_rr').value = String(cfg.min_rr ?? 2.0);
+  document.getElementById('cfg_lot').value = String(cfg.lot ?? 0.01);
 }
 
-function setPill(dotId, textId, state, text){
-  const d = document.getElementById(dotId);
-  dot(d, state);
-  document.getElementById(textId).textContent = text;
+async function previewSignal() {
+  const p = await jget('/api/signal_preview');
+  document.getElementById('preview').innerText = JSON.stringify(p, null, 2);
 }
 
-function fmtMoney(x){
-  const n = Number(x || 0);
-  return n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+async function refreshPerformance() {
+  const p = await jget('/api/performance');
+  document.getElementById('perf').innerText = JSON.stringify(p, null, 2);
 }
 
-function fmtNum(x){
-  const n = Number(x || 0);
-  return n.toLocaleString(undefined, {maximumFractionDigits:2});
-}
-
-function safeStr(x, fallback="-"){
-  if(x === null || x === undefined) return fallback;
-  const s = String(x);
-  return s.length ? s : fallback;
-}
-
-async function loadForm(){
-  const cfg = await apiGet('/api/config');
-  document.getElementById('symbol').value = cfg.symbol ?? "GOLD";
-  document.getElementById('enable_execution').value = String(!!cfg.enable_execution);
-  document.getElementById('confidence_threshold').value = cfg.confidence_threshold ?? 75;
-  document.getElementById('min_score').value = cfg.min_score ?? 7.0;
-  document.getElementById('min_rr').value = cfg.min_rr ?? 2.0;
-  document.getElementById('lot').value = cfg.lot ?? 0.01;
-}
-
-async function saveConfig(){
+async function saveConfig() {
   const patch = {
-    symbol: document.getElementById('symbol').value,
-    enable_execution: document.getElementById('enable_execution').value === "true",
-    confidence_threshold: Number(document.getElementById('confidence_threshold').value),
-    min_score: Number(document.getElementById('min_score').value),
-    min_rr: Number(document.getElementById('min_rr').value),
-    lot: Number(document.getElementById('lot').value)
+    symbol: document.getElementById('cfg_symbol').value,
+    enable_execution: (document.getElementById('cfg_exec').value || '').toLowerCase() === 'true',
+    confidence_threshold: parseInt(document.getElementById('cfg_conf').value || '75', 10),
+    min_score: parseFloat(document.getElementById('cfg_score').value || '7.0'),
+    min_rr: parseFloat(document.getElementById('cfg_rr').value || '2.0'),
+    lot: parseFloat(document.getElementById('cfg_lot').value || '0.01'),
   };
-  await apiPost('/api/config', patch);
-  document.getElementById('mode_result').textContent = 'Saved config.json (hot).';
+  const r = await jpost('/api/config', patch);
+  alert(JSON.stringify(r));
   await refreshAll();
 }
 
-async function applyMode(m){
-  await apiPost('/api/mode/' + m, {});
-  document.getElementById('mode_result').textContent = 'Applied mode ' + m + ' (saved to config.json).';
-  await loadForm();
+async function applyMode(modeId) {
+  const r = await jpost('/api/mode/' + encodeURIComponent(modeId), {});
+  alert(JSON.stringify(r));
   await refreshAll();
 }
 
-function setTelegramHelp(tg){
-  const el = document.getElementById('tg_help');
-  if(!tg || typeof tg !== "object"){
-    el.textContent = "Telegram readiness: unknown.";
-    return;
-  }
-  const enabled = !!tg.enabled;
-  const hasToken = !!tg.has_token;
-  const hasChat = !!tg.has_chat_id;
-
-  let reason = [];
-  if(!enabled) reason.push("telegram.enabled=false");
-  if(enabled && !hasToken) reason.push("missing token (.env)");
-  if(enabled && !hasChat) reason.push("missing chat_id (.env)");
-  if(!reason.length) reason.push("ready");
-
-  el.textContent = "Telegram readiness: " + reason.join(" | ");
-}
-
-async function refreshStatus(){
-  const s = await apiGet('/api/status');
-
-  // MT5
-  const mt5Ok = !!(s.mt5 && s.mt5.mt5_ok);
-  setPill('dot_mt5','mt5_text', mt5Ok ? "good" : "bad", mt5Ok ? "CONNECTED" : "DISCONNECTED");
-
-  // AI
-  const ai = s.ai || {};
-  const aiOk = !!ai.ok;
-  const aiProvider = safeStr(ai.provider, "openai");
-  const aiText = aiOk ? (aiProvider + " OK") : (aiProvider + " not ready");
-  setPill('dot_ai','ai_text', aiOk ? "good" : "warn", aiText);
-
-  // Telegram
-  const tg = s.telegram || {};
-  const tgOk = !!tg.ok;
-  const tgText = tgOk ? "READY" : "NOT READY";
-  setPill('dot_tg','tg_text', tgOk ? "good" : "warn", tgText);
-  setTelegramHelp(tg);
-
-  // Price
-  const cfg = s.config || {};
-  const sym = safeStr(cfg.symbol, "GOLD");
-  document.getElementById('price_symbol').textContent = sym;
-
-  const price = s.price || {};
-  const priceText = (price.ok) ? (`${fmtNum(price.bid)} / ${fmtNum(price.ask)}`) : '--';
-  document.getElementById('price_text').textContent = priceText;
-
-  // badges
-  const exec = !!(s.config && s.config.enable_execution);
-  const bExec = document.getElementById('badge_exec');
-  bExec.className = 'badge ' + (exec ? 'warn' : 'accent');
-  bExec.textContent = 'Execution: ' + (exec ? 'Execute' : 'Dry-run');
-
-  const posCount = Number((s.mt5 && s.mt5.positions_count) || 0);
-  const bPos = document.getElementById('badge_pos');
-  bPos.className = 'badge ' + (posCount > 0 ? 'warn' : '');
-  bPos.textContent = 'Positions: ' + posCount;
-
-  // MT5 box (compact)
-  document.getElementById('mt5_box').textContent = JSON.stringify({
-    account: s.mt5 ? s.mt5.account : null,
-    positions: s.mt5 ? s.mt5.positions : []
-  }, null, 2);
-
-  // update time
-  const dt = new Date((s.ts || Date.now()) * 1000);
-  document.getElementById('last_update').textContent = dt.toLocaleString();
-}
-
-async function previewSignal(){
-  const j = await apiGet('/api/signal_preview');
-
-  const pkg = j.package || {};
-  const ctx = (pkg.context || {});
-  const direction = (pkg.direction || "NONE").toUpperCase();
-
-  // KPI: signal
-  document.getElementById('kpi_signal').textContent = direction;
-  const blocked = (ctx.blocked_by ?? pkg.blocked_by ?? "-");
-  document.getElementById('kpi_blocked').textContent = "blocked_by: " + blocked;
-
-  // KPI: prox/eta
-  const prox = (ctx.breakout_proximity_score ?? pkg.breakout_proximity_score ?? 0);
-  document.getElementById('kpi_prox').textContent = String(prox);
-  const eta = (ctx.eta_candles_to_bos ?? pkg.eta_candles_to_bos ?? "-");
-  document.getElementById('kpi_eta').textContent = "eta: " + String(eta);
-
-  // signal box: mentor trace (compact but complete)
-  const trace = {
-    direction: direction,
-    trends: {
-      HTF: ctx.HTF_trend,
-      MTF: ctx.MTF_trend,
-      LTF: ctx.LTF_trend
-    },
-    supertrend: ctx.supertrend,
-    supertrend_ok: ctx.supertrend_ok,
-    bos: ctx.bos,
-    bos_ref_high: ctx.bos_ref_high,
-    bos_ref_low: ctx.bos_ref_low,
-    distance_to_bos_buy: ctx.distance_to_bos_buy,
-    distance_to_bos_sell: ctx.distance_to_bos_sell,
-    breakout_proximity_score: prox,
-    eta_candles_to_bos: eta,
-    bias_source: ctx.bias_source,
-    blocked_by: blocked,
-    dry_run_order: j.dry_run_order
-  };
-  document.getElementById('signal_box').textContent = JSON.stringify(trace, null, 2);
-}
-
-async function refreshPerformance(){
-  const p = await apiGet('/api/performance');
-
-  // KPI: win/loss
-  const s = p.summary || {};
-  document.getElementById('kpi_winloss').textContent = `${s.wins || 0} / ${s.losses || 0}`;
-  document.getElementById('kpi_winrate').textContent = `winrate: ${fmtNum(s.win_rate || 0)}%`;
-
-  const net = Number(s.net_profit || 0);
-  const netEl = document.getElementById('kpi_net');
-  netEl.textContent = fmtMoney(net);
-  netEl.className = 'value ' + (net >= 0 ? 'good' : 'bad');
-
-  document.getElementById('kpi_pf').textContent = `PF: ${fmtNum(s.profit_factor || 0)}`;
-
-  // table
-  const tb = document.getElementById('trades_tbody');
-  const trades = p.recent || [];
-  if(!trades.length){
-    tb.innerHTML = `<tr><td colspan="5" class="muted">no trades</td></tr>`;
-    return;
-  }
-
-  tb.innerHTML = trades.map(t=>{
-    const timeIso = safeStr(t.time_iso, "-");
-    const side = safeStr(t.side, "-");
-    const vol = Number(t.volume || 0);
-    const netv = Number(t.net || 0);
-    const deal = safeStr(t.deal_ticket, "0");
-    const pos = safeStr(t.position_id, "0");
-
-    const netClass = netv > 0 ? "rowpos" : (netv < 0 ? "rowneg" : "rowmid");
-    return `
-      <tr>
-        <td class="mono">${timeIso}</td>
-        <td class="mono">${side}</td>
-        <td class="mono">${fmtNum(vol)}</td>
-        <td class="${netClass}">${fmtMoney(netv)}</td>
-        <td class="mono">deal:${deal} pos:${pos}</td>
-      </tr>
-    `;
-  }).join("");
-}
-
-async function telegramTest(){
-  try{
-    const text = "HIM Telegram Test ✅<br/>Dashboard commissioning message.";
-    const r = await apiPost('/api/telegram_test', {text, event_type:"signal"});
-
-    const ok = !!r.ok;
-    const tg = r.telegram || null;
-
-    if(ok){
-      document.getElementById('mode_result').textContent = "Telegram: sent.";
-    } else {
-      // Show reason
-      if(tg && typeof tg === "object"){
-        const enabled = !!tg.enabled;
-        const hasToken = !!tg.has_token;
-        const hasChat = !!tg.has_chat_id;
-
-        let reason = [];
-        if(!enabled) reason.push("telegram.enabled=false");
-        if(enabled && !hasToken) reason.push("missing token (.env)");
-        if(enabled && !hasChat) reason.push("missing chat_id (.env)");
-        if(!reason.length) reason.push("send failed (check bot/chat permission)");
-
-        document.getElementById('mode_result').textContent = "Telegram: not sent — " + reason.join(" | ");
-        setTelegramHelp(tg);
-      } else {
-        document.getElementById('mode_result').textContent = "Telegram: not sent (check config/.env).";
-      }
-    }
-
-    // refresh status pills to reflect current telegram readiness
-    await refreshStatus();
-
-  }catch(e){
-    document.getElementById('mode_result').textContent = "Telegram error: " + e.message;
-  }
-}
-
-async function refreshAll(){
-  try{
-    await loadForm();
-    await refreshStatus();
-    await previewSignal();
-    await refreshPerformance();
-  }catch(e){
-    console.error(e);
-    document.getElementById('mode_result').textContent = "Refresh error: " + e.message;
-  }
+async function telegramTest() {
+  const r = await jpost('/api/telegram_test', { text: 'HIM Telegram Test: OK (plain text)', event_type: 'signal' });
+  alert(JSON.stringify(r));
 }
 
 refreshAll();
+previewSignal();
+refreshPerformance();
 </script>
 </body>
 </html>

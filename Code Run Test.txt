@@ -1,66 +1,3471 @@
-PS C:\Hybrid_Intelligence_Mentor> python engine.py
-{
-  "symbol": "GOLD",
-  "direction": "NONE",
-  "entry_candidate": null,
-  "stop_candidate": null,
-  "tp_candidate": null,
-  "rr": 0.0,
-  "score": 0.09317304249389036,
-  "confidence_py": 5,
-  "bos": false,
-  "supertrend_ok": false,
-  "context": {
-    "HTF_trend": "bullish",
-    "MTF_trend": "bearish",
-    "LTF_trend": "bearish",
-    "bias_source": "HTF",
-    "bos_ref_high": 5190.64,
-    "bos_ref_low": 5167.73,
-    "bos_ref": 5190.64,
-    "distance_buy": 4.020000000000437,
-    "distance_sell": 18.890000000000327,
-    "atr": 8.866079612489576,
-    "atr_period": 14,
-    "atr_sl_mult": 1.8,
-    "min_rr": 2.0,
-    "breakout_proximity_min_score": 12.0,
-    "breakout_proximity_threshold_atr": 1.0,
-    "breakout_proximity_threshold_mode": "ATR",
-    "breakout_proximity_threshold_points": 8.866079612489576,
-    "proximity_score": 54.658652124694505,
-    "proximity_side": "BUY",
-    "proximity_best_dist": 4.020000000000437,
-    "breakout_state": "NONE",
-    "breakout_side": null,
-    "breakout_overshoot_points": null,
-    "retest_atr_mult": 0.35,
-    "retest_band": 3.1031278643713516,
-    "retest_ok": false,
-    "supertrend_period": 10,
-    "supertrend_mult": 3.0,
-    "supertrend_dir": "bearish",
-    "supertrend_value": 5202.787901552068,
-    "supertrend_ok": false,
-    "watch_state": "WATCH_PROXIMITY",
-    "blocked_by": "supertrend_conflict",
-    "timeframes": {
-      "htf": "H4",
-      "mtf": "H1",
-      "ltf": "M15"
-    },
-    "structure_sensitivity": {
-      "htf": 5,
-      "mtf": 4,
-      "ltf": 3
-    }
-  }
-}
-PS C:\Hybrid_Intelligence_Mentor> python mentor_executor.py
+PS C:\Hybrid_Intelligence_Mentor> python -c "from mentor_executor import MentorExecutor; MentorExecutor().run_forever(interval_sec=10)"
 ✅ AI Mentor (Mock Mode) - STRICT JSON ONLY
-2026-02-26 16:59:11,578 | INFO | MT5 Connected
-2026-02-26 16:59:11,580 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
-2026-02-26 16:59:11,610 | INFO | SIGNAL: NONE score=0.1 rr=0.00 confidence_py=5 bos=False supertrend_ok=False
-2026-02-26 16:59:12,409 | INFO | NONE_REASON: {'blocked_by': 'supertrend_conflict', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 53.75633674409232, 'proximity_side': 'BUY', 'proximity_best_dist': 4.100000000000364, 'threshold_points': 8.866079612489576, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
-2026-02-26 16:59:12,910 | INFO | No clear bias. Skip.
+2026-02-26 17:04:11,190 | INFO | MT5 Connected
+2026-02-26 17:04:11,193 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:04:11,219 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:04:11,483 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 79.02516419908375, 'proximity_side': 'BUY', 'proximity_best_dist': 1.7800000000006548, 'threshold_points': 8.486359640168907, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:04:11,744 | INFO | No clear bias. Skip.
+2026-02-26 17:04:21,745 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:04:21,770 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:04:22,092 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 75.01873488880686, 'proximity_side': 'BUY', 'proximity_best_dist': 2.119999999999891, 'threshold_points': 8.486359640168907, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:04:22,450 | INFO | No clear bias. Skip.
+2026-02-26 17:04:32,451 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:04:32,478 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:04:32,722 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 78.21314750056247, 'proximity_side': 'BUY', 'proximity_best_dist': 1.8500000000003638, 'threshold_points': 8.491359640168884, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:04:33,035 | INFO | No clear bias. Skip.
+2026-02-26 17:04:43,040 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:04:43,067 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:04:43,320 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 79.86188228430723, 'proximity_side': 'BUY', 'proximity_best_dist': 1.7100000000000364, 'threshold_points': 8.491359640168884, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:04:43,599 | INFO | No clear bias. Skip.
+2026-02-26 17:04:53,600 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:04:53,633 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:04:53,934 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 81.2798077059095, 'proximity_side': 'BUY', 'proximity_best_dist': 1.5900000000001455, 'threshold_points': 8.49350249731179, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:04:54,190 | INFO | No clear bias. Skip.
+2026-02-26 17:05:04,193 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:05:04,232 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:05:04,544 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 84.73782198258746, 'proximity_side': 'BUY', 'proximity_best_dist': 1.300000000000182, 'threshold_points': 8.517788211597448, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:05:04,837 | INFO | No clear bias. Skip.
+2026-02-26 17:05:14,840 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:05:14,900 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:05:15,504 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 84.39347028003994, 'proximity_side': 'BUY', 'proximity_best_dist': 1.3299999999999272, 'threshold_points': 8.522073925883191, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:05:15,868 | INFO | No clear bias. Skip.
+2026-02-26 17:05:25,875 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:05:25,917 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:05:26,231 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 84.86283959492556, 'proximity_side': 'BUY', 'proximity_best_dist': 1.2899999999999636, 'threshold_points': 8.522073925883191, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:05:26,491 | INFO | No clear bias. Skip.
+2026-02-26 17:05:36,492 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:05:36,528 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:05:36,784 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 79.3685011289191, 'proximity_side': 'BUY', 'proximity_best_dist': 1.7600000000002183, 'threshold_points': 8.530645354454613, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:05:37,035 | INFO | No clear bias. Skip.
+2026-02-26 17:05:47,036 | INFO | CFG_EFFECTIVE: {'mode': 'B', 'symbol': 'GOLD', 'enable_execution': False, 'confidence_threshold': 75, 'min_score': 7.0, 'min_rr': 2.0, 'lot': 0.01, 'timeframes': {'htf': 'H4', 'mtf': 'H1', 'ltf': 'M15'}, 'risk': {'atr_period': 14, 'atr_sl_mult': 1.8}, 'supertrend': {'period': 10, 'multiplier': 3.0}, 'ai': {'api_key_env': 'DEEPSEEK_API_KEY', 'timeout_seconds': 10, 'retry_attempts': 3, 'fallback_to_technical': True, 'enabled': False, 'provider': 'openai', 'model': ''}, 'telegram': {'enabled': True, 'token_env': 'TELEGRAM_BOT_TOKEN', 'chat_id_env': 'TELEGRAM_CHAT_ID', 'notify_on': ['signal', 'trade', 'error']}}
+2026-02-26 17:05:47,062 | INFO | SIGNAL: NONE score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+2026-02-26 17:05:47,315 | INFO | NONE_REASON: {'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY', 'breakout_state': 'NONE', 'breakout_side': None, 'bos': False, 'retest_ok': False, 'proximity_score': 80.89241865917049, 'proximity_side': 'BUY', 'proximity_best_dist': 1.6300000000001091, 'threshold_points': 8.530645354454613, 'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068, 'supertrend_ok': True, 'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'MTF_FALLBACK'}
+2026-02-26 17:05:47,657 | INFO | No clear bias. Skip.
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    from mentor_executor import MentorExecutor; MentorExecutor().run_forever(interval_sec=10)
+                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Hybrid_Intelligence_Mentor\mentor_executor.py", line 742, in run_forever
+    time.sleep(interval_sec)
+    ~~~~~~~~~~^^^^^^^^^^^^^^
+KeyboardInterrupt
+PS C:\Hybrid_Intelligence_Mentor> Select-String -Path .\him_system.log -Pattern "SIGNAL:|NONE_REASON:|breakout_state|bos|retest_ok|watch_state"
+
+him_system.log:96:2026-02-24 13:10:49,032 - HIM_System - INFO -
+Signal: BUY
+him_system.log:116:2026-02-24 15:22:58,857 - INFO - 📈 สัญญาณ - Signal:
+BUY EURUSD
+him_system.log:158:2026-02-24 15:25:20,530 - INFO - 📈 สัญญาณ - Signal:
+BUY EURUSD
+him_system.log:200:2026-02-24 15:26:19,325 - INFO - 📈 สัญญาณ - Signal:
+BUY EURUSD
+him_system.log:242:2026-02-24 15:29:54,241 - INFO - 📈 สัญญาณ - Signal:
+BUY EURUSD
+him_system.log:284:2026-02-24 15:38:57,536 - INFO - 📈 สัญญาณ - Signal:
+BUY EURUSD
+him_system.log:326:2026-02-24 15:53:27,190 - INFO - 📈 สัญญาณ - Signal:
+BUY GOLD
+him_system.log:374:2026-02-24 18:05:13,149 - INFO - 📈 สัญญาณ - Signal:
+BUY GOLD
+him_system.log:416:2026-02-24 18:19:14,412 - INFO - 📈 สัญญาณ - Signal:
+BUY XAUUSD
+him_system.log:450:2026-02-24 18:21:13,495 - INFO - 📈 สัญญาณ - Signal:
+BUY GOLD
+him_system.log:491:2026-02-25 11:43:55,056 | INFO | SIGNAL: NONE
+score=1.0 rr=11.79
+him_system.log:495:2026-02-25 13:07:55,283 | INFO | SIGNAL: NONE
+score=1.0 rr=3.52
+him_system.log:497:2026-02-25 13:08:10,377 | INFO | SIGNAL: NONE
+score=1.0 rr=3.52
+him_system.log:499:2026-02-25 13:08:25,456 | INFO | SIGNAL: NONE
+score=1.0 rr=3.49
+him_system.log:501:2026-02-25 13:08:40,574 | INFO | SIGNAL: NONE
+score=1.0 rr=3.57
+him_system.log:503:2026-02-25 13:08:55,673 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:505:2026-02-25 13:09:10,765 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:507:2026-02-25 13:09:25,877 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:509:2026-02-25 13:09:41,256 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:511:2026-02-25 13:09:56,391 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:513:2026-02-25 13:10:11,780 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:515:2026-02-25 13:10:26,903 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:517:2026-02-25 13:10:42,016 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:519:2026-02-25 13:10:57,133 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:521:2026-02-25 13:11:12,217 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:523:2026-02-25 13:11:27,342 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:525:2026-02-25 13:11:42,434 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:527:2026-02-25 13:11:57,572 | INFO | SIGNAL: NONE
+score=1.0 rr=3.00
+him_system.log:529:2026-02-25 13:12:12,662 | INFO | SIGNAL: NONE
+score=1.0 rr=3.00
+him_system.log:533:2026-02-25 13:12:28,728 | INFO | SIGNAL: NONE
+score=1.0 rr=3.00
+him_system.log:535:2026-02-25 13:12:43,831 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:537:2026-02-25 13:12:59,010 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:539:2026-02-25 13:13:14,140 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:541:2026-02-25 13:13:29,269 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:543:2026-02-25 13:13:44,490 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:545:2026-02-25 13:13:59,597 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:547:2026-02-25 13:14:14,701 | INFO | SIGNAL: NONE
+score=1.0 rr=3.29
+him_system.log:549:2026-02-25 13:14:29,841 | INFO | SIGNAL: NONE
+score=1.0 rr=3.00
+him_system.log:551:2026-02-25 13:14:44,977 | INFO | SIGNAL: NONE
+score=1.0 rr=3.00
+him_system.log:553:2026-02-25 13:15:00,102 | INFO | SIGNAL: NONE
+score=1.0 rr=3.00
+him_system.log:555:2026-02-25 13:15:15,231 | INFO | SIGNAL: NONE
+score=1.0 rr=3.38
+him_system.log:557:2026-02-25 13:15:30,316 | INFO | SIGNAL: NONE
+score=1.0 rr=3.33
+him_system.log:559:2026-02-25 13:15:45,462 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:561:2026-02-25 13:16:00,575 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:563:2026-02-25 13:16:15,679 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:565:2026-02-25 13:16:30,801 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:567:2026-02-25 13:16:45,904 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:569:2026-02-25 13:17:00,999 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:571:2026-02-25 13:17:16,125 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:573:2026-02-25 13:17:31,273 | INFO | SIGNAL: NONE
+score=1.0 rr=3.31
+him_system.log:575:2026-02-25 13:17:46,419 | INFO | SIGNAL: NONE
+score=1.0 rr=3.30
+him_system.log:577:2026-02-25 13:18:01,554 | INFO | SIGNAL: NONE
+score=1.0 rr=3.26
+him_system.log:579:2026-02-25 13:18:16,655 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:581:2026-02-25 13:18:31,750 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:583:2026-02-25 13:18:46,864 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:587:2026-02-25 13:20:06,789 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:589:2026-02-25 13:20:21,866 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:591:2026-02-25 13:20:36,972 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:593:2026-02-25 13:20:52,106 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:595:2026-02-25 13:21:07,216 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:597:2026-02-25 13:21:22,463 | INFO | SIGNAL: NONE
+score=1.0 rr=3.25
+him_system.log:599:2026-02-25 13:21:37,614 | INFO | SIGNAL: NONE
+score=1.0 rr=3.22
+him_system.log:601:2026-02-25 13:21:52,871 | INFO | SIGNAL: NONE
+score=1.0 rr=3.22
+him_system.log:605:2026-02-25 13:29:20,382 | INFO | SIGNAL: NONE
+score=1.0 rr=3.17
+him_system.log:607:2026-02-25 13:29:35,484 | INFO | SIGNAL: NONE
+score=1.0 rr=3.17
+him_system.log:609:2026-02-25 13:29:50,603 | INFO | SIGNAL: NONE
+score=1.0 rr=3.17
+him_system.log:611:2026-02-25 13:30:05,693 | INFO | SIGNAL: NONE
+score=1.0 rr=3.55
+him_system.log:613:2026-02-25 13:30:20,778 | INFO | SIGNAL: NONE
+score=1.0 rr=3.55
+him_system.log:615:2026-02-25 13:30:35,922 | INFO | SIGNAL: NONE
+score=1.0 rr=3.85
+him_system.log:617:2026-02-25 13:30:51,051 | INFO | SIGNAL: NONE
+score=1.0 rr=3.50
+him_system.log:619:2026-02-25 13:31:06,226 | INFO | SIGNAL: NONE
+score=1.0 rr=3.50
+him_system.log:621:2026-02-25 13:31:21,389 | INFO | SIGNAL: NONE
+score=1.0 rr=3.50
+him_system.log:623:2026-02-25 13:31:36,490 | INFO | SIGNAL: NONE
+score=1.0 rr=3.45
+him_system.log:625:2026-02-25 13:31:51,658 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:627:2026-02-25 13:32:06,773 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:629:2026-02-25 13:32:21,872 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:631:2026-02-25 13:32:37,230 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:633:2026-02-25 13:32:52,480 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:635:2026-02-25 13:33:07,653 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:637:2026-02-25 13:33:22,813 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:639:2026-02-25 13:33:37,978 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:641:2026-02-25 13:33:53,702 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:643:2026-02-25 13:34:08,855 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:645:2026-02-25 13:34:24,018 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:647:2026-02-25 13:34:39,275 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:649:2026-02-25 13:34:54,400 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:651:2026-02-25 13:35:09,526 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:653:2026-02-25 13:35:24,713 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:655:2026-02-25 13:35:39,849 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:657:2026-02-25 13:35:54,984 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:659:2026-02-25 13:36:10,087 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:661:2026-02-25 13:36:25,218 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:663:2026-02-25 13:36:40,343 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:665:2026-02-25 13:36:55,462 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:667:2026-02-25 13:37:10,567 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:669:2026-02-25 13:37:25,689 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:671:2026-02-25 13:37:40,828 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:673:2026-02-25 13:37:55,929 | INFO | SIGNAL: NONE
+score=1.0 rr=3.41
+him_system.log:675:2026-02-25 13:38:11,041 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:677:2026-02-25 13:38:26,153 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:679:2026-02-25 13:38:41,252 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:681:2026-02-25 13:38:56,341 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:683:2026-02-25 13:39:11,447 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:685:2026-02-25 13:39:26,529 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:687:2026-02-25 13:39:41,612 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:689:2026-02-25 13:39:56,721 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:691:2026-02-25 13:40:11,857 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:693:2026-02-25 13:40:27,029 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:695:2026-02-25 13:40:42,167 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:697:2026-02-25 13:40:57,275 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:699:2026-02-25 13:41:12,373 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:701:2026-02-25 13:41:27,490 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:703:2026-02-25 13:41:42,594 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:705:2026-02-25 13:41:57,698 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:707:2026-02-25 13:42:12,806 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:709:2026-02-25 13:42:27,895 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:711:2026-02-25 13:42:43,019 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:713:2026-02-25 13:42:58,107 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:715:2026-02-25 13:43:13,199 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:717:2026-02-25 13:43:28,290 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:719:2026-02-25 13:43:43,404 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:721:2026-02-25 13:43:58,515 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:723:2026-02-25 13:44:13,623 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:725:2026-02-25 13:44:28,713 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:727:2026-02-25 13:44:43,831 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:729:2026-02-25 13:44:58,933 | INFO | SIGNAL: NONE
+score=1.0 rr=3.35
+him_system.log:731:2026-02-25 13:45:14,040 | INFO | SIGNAL: NONE
+score=0.5 rr=3.81
+him_system.log:733:2026-02-25 13:45:29,129 | INFO | SIGNAL: NONE
+score=1.0 rr=3.81
+him_system.log:735:2026-02-25 13:45:44,225 | INFO | SIGNAL: NONE
+score=1.0 rr=3.77
+him_system.log:737:2026-02-25 13:45:59,325 | INFO | SIGNAL: NONE
+score=1.0 rr=3.76
+him_system.log:739:2026-02-25 13:46:14,438 | INFO | SIGNAL: NONE
+score=1.0 rr=3.76
+him_system.log:741:2026-02-25 13:46:29,594 | INFO | SIGNAL: NONE
+score=1.0 rr=3.76
+him_system.log:743:2026-02-25 13:46:44,688 | INFO | SIGNAL: NONE
+score=1.0 rr=3.76
+him_system.log:745:2026-02-25 13:46:59,812 | INFO | SIGNAL: NONE
+score=1.0 rr=3.76
+him_system.log:747:2026-02-25 13:47:14,907 | INFO | SIGNAL: NONE
+score=1.0 rr=3.73
+him_system.log:749:2026-02-25 13:47:30,000 | INFO | SIGNAL: NONE
+score=1.0 rr=3.70
+him_system.log:751:2026-02-25 13:47:45,116 | INFO | SIGNAL: NONE
+score=1.0 rr=3.70
+him_system.log:753:2026-02-25 13:48:00,227 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:755:2026-02-25 13:48:15,339 | INFO | SIGNAL: NONE
+score=0.5 rr=3.64
+him_system.log:757:2026-02-25 13:48:30,484 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:759:2026-02-25 13:48:45,594 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:761:2026-02-25 13:49:00,722 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:763:2026-02-25 13:49:15,828 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:765:2026-02-25 13:49:30,951 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:767:2026-02-25 13:49:46,053 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:769:2026-02-25 13:50:01,156 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:771:2026-02-25 13:50:16,264 | INFO | SIGNAL: NONE
+score=1.0 rr=3.63
+him_system.log:773:2026-02-25 13:50:31,369 | INFO | SIGNAL: NONE
+score=1.0 rr=3.63
+him_system.log:775:2026-02-25 13:50:46,478 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:777:2026-02-25 13:51:01,597 | INFO | SIGNAL: NONE
+score=1.0 rr=3.63
+him_system.log:779:2026-02-25 13:51:16,711 | INFO | SIGNAL: NONE
+score=1.0 rr=3.63
+him_system.log:781:2026-02-25 13:51:31,875 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:783:2026-02-25 13:51:46,980 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:785:2026-02-25 13:52:02,081 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:787:2026-02-25 13:52:17,203 | INFO | SIGNAL: NONE
+score=0.5 rr=3.63
+him_system.log:789:2026-02-25 13:52:32,300 | INFO | SIGNAL: NONE
+score=0.5 rr=3.60
+him_system.log:791:2026-02-25 13:52:47,407 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:793:2026-02-25 13:53:02,519 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:795:2026-02-25 13:53:17,628 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:797:2026-02-25 13:53:32,742 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:799:2026-02-25 13:53:47,857 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:801:2026-02-25 13:54:02,953 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:803:2026-02-25 13:54:18,077 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:805:2026-02-25 13:54:33,172 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:807:2026-02-25 13:54:48,282 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:809:2026-02-25 13:55:03,399 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:811:2026-02-25 13:55:18,542 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:813:2026-02-25 13:55:33,677 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:815:2026-02-25 13:55:48,775 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:817:2026-02-25 13:56:03,883 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:819:2026-02-25 13:56:19,003 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:821:2026-02-25 13:56:34,099 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:823:2026-02-25 13:56:49,215 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:825:2026-02-25 13:57:04,326 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:827:2026-02-25 13:57:19,440 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:829:2026-02-25 13:57:34,552 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:831:2026-02-25 13:57:49,705 | INFO | SIGNAL: NONE
+score=0.5 rr=3.59
+him_system.log:833:2026-02-25 13:58:04,811 | INFO | SIGNAL: NONE
+score=0.5 rr=3.58
+him_system.log:835:2026-02-25 13:58:19,948 | INFO | SIGNAL: NONE
+score=0.5 rr=3.57
+him_system.log:837:2026-02-25 13:58:35,042 | INFO | SIGNAL: NONE
+score=0.5 rr=3.56
+him_system.log:839:2026-02-25 13:58:50,142 | INFO | SIGNAL: NONE
+score=0.5 rr=3.56
+him_system.log:841:2026-02-25 13:59:05,253 | INFO | SIGNAL: NONE
+score=0.5 rr=3.56
+him_system.log:843:2026-02-25 13:59:20,370 | INFO | SIGNAL: NONE
+score=0.5 rr=3.56
+him_system.log:845:2026-02-25 13:59:35,479 | INFO | SIGNAL: NONE
+score=0.5 rr=3.56
+him_system.log:847:2026-02-25 13:59:50,603 | INFO | SIGNAL: NONE
+score=0.5 rr=3.56
+him_system.log:849:2026-02-25 14:00:05,709 | INFO | SIGNAL: NONE
+score=0.5 rr=4.06
+him_system.log:851:2026-02-25 14:00:20,836 | INFO | SIGNAL: NONE
+score=0.5 rr=3.96
+him_system.log:853:2026-02-25 14:00:35,948 | INFO | SIGNAL: NONE
+score=0.5 rr=3.93
+him_system.log:855:2026-02-25 14:00:51,069 | INFO | SIGNAL: NONE
+score=0.5 rr=3.93
+him_system.log:857:2026-02-25 14:01:06,186 | INFO | SIGNAL: NONE
+score=0.5 rr=3.93
+him_system.log:859:2026-02-25 14:01:21,301 | INFO | SIGNAL: NONE
+score=0.5 rr=3.93
+him_system.log:861:2026-02-25 14:01:36,398 | INFO | SIGNAL: NONE
+score=1.0 rr=3.87
+him_system.log:863:2026-02-25 14:01:51,511 | INFO | SIGNAL: NONE
+score=1.0 rr=3.81
+him_system.log:865:2026-02-25 14:02:06,631 | INFO | SIGNAL: NONE
+score=1.0 rr=3.80
+him_system.log:867:2026-02-25 14:02:21,749 | INFO | SIGNAL: NONE
+score=1.0 rr=3.78
+him_system.log:869:2026-02-25 14:02:36,874 | INFO | SIGNAL: NONE
+score=1.0 rr=3.78
+him_system.log:871:2026-02-25 14:02:52,031 | INFO | SIGNAL: NONE
+score=1.0 rr=4.02
+him_system.log:873:2026-02-25 14:03:07,149 | INFO | SIGNAL: NONE
+score=1.0 rr=4.02
+him_system.log:875:2026-02-25 14:03:22,264 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:877:2026-02-25 14:03:37,363 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:879:2026-02-25 14:03:52,462 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:881:2026-02-25 14:04:07,561 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:883:2026-02-25 14:04:22,671 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:885:2026-02-25 14:04:37,792 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:887:2026-02-25 14:04:52,912 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:889:2026-02-25 14:05:08,044 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:891:2026-02-25 14:05:23,191 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:893:2026-02-25 14:05:38,311 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:895:2026-02-25 14:05:53,447 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:897:2026-02-25 14:06:08,567 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:899:2026-02-25 14:06:23,698 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:901:2026-02-25 14:06:38,821 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:903:2026-02-25 14:06:53,941 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:905:2026-02-25 14:07:09,131 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:907:2026-02-25 14:07:24,251 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:909:2026-02-25 14:07:39,352 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:911:2026-02-25 14:07:54,489 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:913:2026-02-25 14:08:09,590 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:915:2026-02-25 14:08:24,719 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:917:2026-02-25 14:08:39,837 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:919:2026-02-25 14:08:54,968 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:921:2026-02-25 14:09:10,085 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:923:2026-02-25 14:09:25,213 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:925:2026-02-25 14:09:40,338 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:927:2026-02-25 14:09:55,457 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:929:2026-02-25 14:10:10,574 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:931:2026-02-25 14:10:25,704 | INFO | SIGNAL: NONE
+score=0.5 rr=3.65
+him_system.log:933:2026-02-25 14:10:40,827 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:935:2026-02-25 14:10:55,981 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:937:2026-02-25 14:11:11,086 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:939:2026-02-25 14:11:26,195 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:941:2026-02-25 14:11:41,335 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:943:2026-02-25 14:11:56,452 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:945:2026-02-25 14:12:11,565 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:947:2026-02-25 14:12:26,692 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:949:2026-02-25 14:12:41,815 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:951:2026-02-25 14:12:56,979 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:953:2026-02-25 14:13:12,092 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:955:2026-02-25 14:13:27,206 | INFO | SIGNAL: NONE
+score=1.0 rr=3.65
+him_system.log:957:2026-02-25 14:13:42,311 | INFO | SIGNAL: NONE
+score=1.0 rr=4.01
+him_system.log:959:2026-02-25 14:13:57,426 | INFO | SIGNAL: NONE
+score=1.0 rr=4.00
+him_system.log:961:2026-02-25 14:14:12,546 | INFO | SIGNAL: NONE
+score=1.0 rr=4.00
+him_system.log:963:2026-02-25 14:14:27,685 | INFO | SIGNAL: NONE
+score=1.0 rr=4.00
+him_system.log:965:2026-02-25 14:14:42,807 | INFO | SIGNAL: NONE
+score=1.0 rr=4.00
+him_system.log:967:2026-02-25 14:14:57,933 | INFO | SIGNAL: NONE
+score=1.0 rr=4.00
+him_system.log:969:2026-02-25 14:15:13,039 | INFO | SIGNAL: NONE
+score=1.0 rr=4.09
+him_system.log:971:2026-02-25 14:15:28,177 | INFO | SIGNAL: NONE
+score=1.0 rr=4.04
+him_system.log:973:2026-02-25 14:15:43,302 | INFO | SIGNAL: NONE
+score=1.0 rr=4.04
+him_system.log:975:2026-02-25 14:15:58,428 | INFO | SIGNAL: NONE
+score=1.0 rr=4.04
+him_system.log:977:2026-02-25 14:16:13,557 | INFO | SIGNAL: NONE
+score=1.0 rr=4.43
+him_system.log:979:2026-02-25 14:16:28,692 | INFO | SIGNAL: NONE
+score=1.0 rr=4.04
+him_system.log:981:2026-02-25 14:16:43,819 | INFO | SIGNAL: NONE
+score=1.0 rr=4.04
+him_system.log:983:2026-02-25 14:16:58,948 | INFO | SIGNAL: NONE
+score=1.0 rr=4.04
+him_system.log:985:2026-02-25 14:17:14,077 | INFO | SIGNAL: NONE
+score=1.0 rr=4.43
+him_system.log:987:2026-02-25 14:17:29,192 | INFO | SIGNAL: NONE
+score=1.0 rr=4.40
+him_system.log:989:2026-02-25 14:17:44,319 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:991:2026-02-25 14:17:59,436 | INFO | SIGNAL: NONE
+score=1.0 rr=4.37
+him_system.log:993:2026-02-25 14:18:14,547 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:995:2026-02-25 14:18:29,668 | INFO | SIGNAL: NONE
+score=1.0 rr=4.32
+him_system.log:997:2026-02-25 14:18:44,793 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:999:2026-02-25 14:18:59,921 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1001:2026-02-25 14:19:15,055 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1003:2026-02-25 14:19:30,174 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1005:2026-02-25 14:19:45,304 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1007:2026-02-25 14:20:00,432 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1009:2026-02-25 14:20:15,569 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1011:2026-02-25 14:20:30,696 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1013:2026-02-25 14:20:45,814 | INFO | SIGNAL: NONE
+score=1.0 rr=3.86
+him_system.log:1015:2026-02-25 14:21:00,930 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1017:2026-02-25 14:21:16,054 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1019:2026-02-25 14:21:31,173 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1021:2026-02-25 14:21:46,305 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1023:2026-02-25 14:22:01,431 | INFO | SIGNAL: NONE
+score=1.0 rr=4.24
+him_system.log:1025:2026-02-25 14:22:16,539 | INFO | SIGNAL: NONE
+score=1.0 rr=4.22
+him_system.log:1027:2026-02-25 14:22:31,671 | INFO | SIGNAL: NONE
+score=1.0 rr=4.19
+him_system.log:1029:2026-02-25 14:22:46,813 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1031:2026-02-25 14:23:01,952 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1033:2026-02-25 14:23:17,063 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1035:2026-02-25 14:23:32,186 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1037:2026-02-25 14:23:47,303 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1039:2026-02-25 14:24:02,443 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1041:2026-02-25 14:24:17,586 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1043:2026-02-25 14:24:32,722 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1045:2026-02-25 14:24:47,833 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1047:2026-02-25 14:25:02,962 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1049:2026-02-25 14:25:18,073 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1051:2026-02-25 14:25:33,197 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1053:2026-02-25 14:25:48,311 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1055:2026-02-25 14:26:03,456 | INFO | SIGNAL: NONE
+score=1.0 rr=4.40
+him_system.log:1057:2026-02-25 14:26:18,600 | INFO | SIGNAL: NONE
+score=1.0 rr=4.40
+him_system.log:1059:2026-02-25 14:26:33,726 | INFO | SIGNAL: NONE
+score=1.0 rr=4.14
+him_system.log:1061:2026-02-25 14:26:48,891 | INFO | SIGNAL: NONE
+score=1.0 rr=4.30
+him_system.log:1063:2026-02-25 14:27:04,030 | INFO | SIGNAL: NONE
+score=1.0 rr=4.30
+him_system.log:1065:2026-02-25 14:27:19,167 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1067:2026-02-25 14:27:34,292 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1069:2026-02-25 14:27:49,459 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1071:2026-02-25 14:28:04,582 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1073:2026-02-25 14:28:19,709 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1075:2026-02-25 14:28:34,826 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1077:2026-02-25 14:28:49,981 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1079:2026-02-25 14:29:05,114 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1081:2026-02-25 14:29:20,254 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1083:2026-02-25 14:29:35,378 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1085:2026-02-25 14:29:50,505 | INFO | SIGNAL: NONE
+score=1.0 rr=4.05
+him_system.log:1087:2026-02-25 14:30:05,636 | INFO | SIGNAL: NONE
+score=1.0 rr=4.21
+him_system.log:1089:2026-02-25 14:30:20,765 | INFO | SIGNAL: NONE
+score=1.0 rr=4.20
+him_system.log:1091:2026-02-25 14:30:35,901 | INFO | SIGNAL: NONE
+score=1.0 rr=4.15
+him_system.log:1093:2026-02-25 14:30:51,020 | INFO | SIGNAL: NONE
+score=1.0 rr=4.56
+him_system.log:1095:2026-02-25 14:31:06,144 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1097:2026-02-25 14:31:21,296 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1099:2026-02-25 14:31:36,425 | INFO | SIGNAL: NONE
+score=1.0 rr=4.51
+him_system.log:1101:2026-02-25 14:31:51,548 | INFO | SIGNAL: NONE
+score=1.0 rr=4.51
+him_system.log:1103:2026-02-25 14:32:06,698 | INFO | SIGNAL: NONE
+score=1.0 rr=4.51
+him_system.log:1105:2026-02-25 14:32:21,830 | INFO | SIGNAL: NONE
+score=1.0 rr=4.51
+him_system.log:1107:2026-02-25 14:32:36,971 | INFO | SIGNAL: NONE
+score=1.0 rr=4.41
+him_system.log:1109:2026-02-25 14:32:52,107 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1111:2026-02-25 14:33:07,282 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1113:2026-02-25 14:33:22,408 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1115:2026-02-25 14:33:37,547 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1117:2026-02-25 14:33:52,694 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1119:2026-02-25 14:34:07,826 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1121:2026-02-25 14:34:22,943 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1123:2026-02-25 14:34:38,090 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1125:2026-02-25 14:34:53,230 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1127:2026-02-25 14:35:08,366 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1129:2026-02-25 14:35:23,499 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1131:2026-02-25 14:35:38,658 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1133:2026-02-25 14:35:53,798 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1135:2026-02-25 14:36:08,940 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1137:2026-02-25 14:36:24,078 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1139:2026-02-25 14:36:39,200 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1141:2026-02-25 14:36:54,327 | INFO | SIGNAL: NONE
+score=1.0 rr=4.36
+him_system.log:1143:2026-02-25 14:37:09,462 | INFO | SIGNAL: NONE
+score=1.0 rr=4.36
+him_system.log:1145:2026-02-25 14:37:24,600 | INFO | SIGNAL: NONE
+score=1.0 rr=4.36
+him_system.log:1147:2026-02-25 14:37:39,816 | INFO | SIGNAL: NONE
+score=1.0 rr=4.36
+him_system.log:1149:2026-02-25 14:37:54,953 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1151:2026-02-25 14:38:10,100 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1153:2026-02-25 14:38:25,231 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1155:2026-02-25 14:38:40,370 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1157:2026-02-25 14:38:55,492 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1159:2026-02-25 14:39:10,627 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1161:2026-02-25 14:39:25,747 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1163:2026-02-25 14:39:40,868 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1165:2026-02-25 14:39:56,024 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1167:2026-02-25 14:40:11,161 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1169:2026-02-25 14:40:26,282 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1171:2026-02-25 14:40:41,401 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1173:2026-02-25 14:40:56,537 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1175:2026-02-25 14:41:11,680 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1177:2026-02-25 14:41:26,849 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1179:2026-02-25 14:41:41,988 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1181:2026-02-25 14:41:57,139 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1183:2026-02-25 14:42:12,275 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1185:2026-02-25 14:42:27,411 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1187:2026-02-25 14:42:42,550 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1189:2026-02-25 14:42:57,686 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1191:2026-02-25 14:43:12,807 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1193:2026-02-25 14:43:27,959 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1195:2026-02-25 14:43:43,101 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1197:2026-02-25 14:43:58,323 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1199:2026-02-25 14:44:13,452 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1201:2026-02-25 14:44:28,573 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1203:2026-02-25 14:44:43,699 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1205:2026-02-25 14:44:58,834 | INFO | SIGNAL: NONE
+score=1.0 rr=4.33
+him_system.log:1207:2026-02-25 14:45:13,972 | INFO | SIGNAL: NONE
+score=1.0 rr=4.99
+him_system.log:1209:2026-02-25 14:45:29,110 | INFO | SIGNAL: NONE
+score=1.0 rr=4.99
+him_system.log:1211:2026-02-25 14:45:44,244 | INFO | SIGNAL: NONE
+score=1.0 rr=4.96
+him_system.log:1213:2026-02-25 14:45:59,380 | INFO | SIGNAL: NONE
+score=1.0 rr=4.92
+him_system.log:1215:2026-02-25 14:46:14,529 | INFO | SIGNAL: NONE
+score=1.0 rr=4.88
+him_system.log:1217:2026-02-25 14:46:29,670 | INFO | SIGNAL: NONE
+score=1.0 rr=4.88
+him_system.log:1219:2026-02-25 14:46:44,817 | INFO | SIGNAL: NONE
+score=1.0 rr=4.84
+him_system.log:1221:2026-02-25 14:46:59,963 | INFO | SIGNAL: NONE
+score=1.0 rr=4.84
+him_system.log:1223:2026-02-25 14:47:15,096 | INFO | SIGNAL: NONE
+score=1.0 rr=4.84
+him_system.log:1225:2026-02-25 14:47:30,244 | INFO | SIGNAL: NONE
+score=1.0 rr=4.84
+him_system.log:1227:2026-02-25 14:47:45,390 | INFO | SIGNAL: NONE
+score=1.0 rr=4.79
+him_system.log:1229:2026-02-25 14:48:00,574 | INFO | SIGNAL: NONE
+score=1.0 rr=4.68
+him_system.log:1231:2026-02-25 14:48:15,717 | INFO | SIGNAL: NONE
+score=1.0 rr=4.23
+him_system.log:1233:2026-02-25 14:48:30,843 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1235:2026-02-25 14:48:45,989 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1237:2026-02-25 14:49:01,126 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1239:2026-02-25 14:49:16,275 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1241:2026-02-25 14:49:31,410 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1243:2026-02-25 14:49:46,559 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1245:2026-02-25 14:50:01,689 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1247:2026-02-25 14:50:16,813 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1249:2026-02-25 14:50:31,939 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1251:2026-02-25 14:50:47,094 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1253:2026-02-25 14:51:02,238 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1255:2026-02-25 14:51:17,371 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1257:2026-02-25 14:51:32,522 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1259:2026-02-25 14:51:47,660 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1261:2026-02-25 14:52:02,803 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1263:2026-02-25 14:52:17,960 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1265:2026-02-25 14:52:33,106 | INFO | SIGNAL: NONE
+score=1.0 rr=4.63
+him_system.log:1267:2026-02-25 14:52:48,235 | INFO | SIGNAL: NONE
+score=1.0 rr=4.57
+him_system.log:1269:2026-02-25 14:53:03,386 | INFO | SIGNAL: NONE
+score=1.0 rr=4.57
+him_system.log:1271:2026-02-25 14:53:18,521 | INFO | SIGNAL: NONE
+score=1.0 rr=4.77
+him_system.log:1273:2026-02-25 14:53:33,667 | INFO | SIGNAL: NONE
+score=1.0 rr=4.77
+him_system.log:1275:2026-02-25 14:53:48,817 | INFO | SIGNAL: NONE
+score=1.0 rr=4.69
+him_system.log:1277:2026-02-25 14:54:03,972 | INFO | SIGNAL: NONE
+score=1.0 rr=4.69
+him_system.log:1279:2026-02-25 14:54:19,130 | INFO | SIGNAL: NONE
+score=1.0 rr=4.69
+him_system.log:1281:2026-02-25 14:54:34,316 | INFO | SIGNAL: NONE
+score=1.0 rr=11.79
+him_system.log:1283:2026-02-25 14:54:49,516 | INFO | SIGNAL: NONE
+score=1.0 rr=11.79
+him_system.log:1285:2026-02-25 14:55:04,745 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1287:2026-02-25 14:55:19,891 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1289:2026-02-25 14:55:35,027 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1291:2026-02-25 14:55:50,161 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1293:2026-02-25 14:56:05,289 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1295:2026-02-25 14:56:20,443 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1297:2026-02-25 14:56:35,589 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1299:2026-02-25 14:56:50,776 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1301:2026-02-25 14:57:05,932 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1303:2026-02-25 14:57:21,101 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1305:2026-02-25 14:57:36,352 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1307:2026-02-25 14:57:51,609 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1309:2026-02-25 14:58:06,906 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1311:2026-02-25 14:58:22,071 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1313:2026-02-25 14:58:37,217 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1315:2026-02-25 14:58:52,368 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1317:2026-02-25 14:59:07,503 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1319:2026-02-25 14:59:22,673 | INFO | SIGNAL: NONE
+score=1.0 rr=4.54
+him_system.log:1321:2026-02-25 14:59:37,824 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1323:2026-02-25 14:59:52,987 | INFO | SIGNAL: NONE
+score=1.0 rr=4.27
+him_system.log:1325:2026-02-25 15:00:08,133 | INFO | SIGNAL: NONE
+score=1.0 rr=4.73
+him_system.log:1327:2026-02-25 15:00:23,300 | INFO | SIGNAL: NONE
+score=1.0 rr=4.13
+him_system.log:1329:2026-02-25 15:00:38,455 | INFO | SIGNAL: NONE
+score=1.0 rr=4.46
+him_system.log:1331:2026-02-25 15:00:53,652 | INFO | SIGNAL: NONE
+score=1.0 rr=4.46
+him_system.log:1333:2026-02-25 15:01:08,803 | INFO | SIGNAL: NONE
+score=1.0 rr=4.06
+him_system.log:1335:2026-02-25 15:01:23,958 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1337:2026-02-25 15:01:39,107 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1339:2026-02-25 15:01:54,272 | INFO | SIGNAL: NONE
+score=1.0 rr=4.06
+him_system.log:1341:2026-02-25 15:02:09,423 | INFO | SIGNAL: NONE
+score=1.0 rr=4.06
+him_system.log:1343:2026-02-25 15:02:24,576 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1345:2026-02-25 15:02:39,727 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1347:2026-02-25 15:02:54,876 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1349:2026-02-25 15:03:10,083 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1351:2026-02-25 15:03:25,268 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1353:2026-02-25 15:03:40,457 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1355:2026-02-25 15:03:55,612 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1357:2026-02-25 15:04:10,775 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1359:2026-02-25 15:04:25,917 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1361:2026-02-25 15:04:41,055 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1363:2026-02-25 15:04:56,213 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1365:2026-02-25 15:05:11,438 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1367:2026-02-25 15:05:26,592 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1369:2026-02-25 15:05:41,757 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1371:2026-02-25 15:05:56,895 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1373:2026-02-25 15:06:12,040 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1375:2026-02-25 15:06:27,223 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1377:2026-02-25 15:06:42,380 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1379:2026-02-25 15:06:57,537 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1381:2026-02-25 15:07:12,739 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1383:2026-02-25 15:07:27,896 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1385:2026-02-25 15:07:43,103 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1387:2026-02-25 15:07:58,283 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1389:2026-02-25 15:08:13,416 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1391:2026-02-25 15:08:28,616 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1393:2026-02-25 15:08:43,823 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1395:2026-02-25 15:08:59,098 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1397:2026-02-25 15:09:14,347 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1399:2026-02-25 15:09:29,659 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1401:2026-02-25 15:09:45,005 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1403:2026-02-25 15:10:00,233 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1405:2026-02-25 15:10:15,417 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1407:2026-02-25 15:10:30,630 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1409:2026-02-25 15:10:47,386 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1411:2026-02-25 15:11:02,896 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1413:2026-02-25 15:11:18,770 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1415:2026-02-25 15:11:34,241 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1417:2026-02-25 15:11:49,483 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1419:2026-02-25 15:12:04,678 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1421:2026-02-25 15:12:19,857 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1423:2026-02-25 15:12:35,091 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1425:2026-02-25 15:12:50,307 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1427:2026-02-25 15:13:05,470 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1429:2026-02-25 15:13:20,682 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1431:2026-02-25 15:13:35,891 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1433:2026-02-25 15:13:51,047 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1435:2026-02-25 15:14:06,215 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1437:2026-02-25 15:14:21,381 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1439:2026-02-25 15:14:36,526 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1441:2026-02-25 15:14:51,732 | INFO | SIGNAL: NONE
+score=1.0 rr=4.45
+him_system.log:1443:2026-02-25 15:15:06,940 | INFO | SIGNAL: NONE
+score=1.0 rr=5.07
+him_system.log:1445:2026-02-25 15:15:22,094 | INFO | SIGNAL: NONE
+score=1.0 rr=5.06
+him_system.log:1447:2026-02-25 15:15:37,230 | INFO | SIGNAL: NONE
+score=1.0 rr=5.05
+him_system.log:1449:2026-02-25 15:15:52,391 | INFO | SIGNAL: NONE
+score=1.0 rr=5.05
+him_system.log:1451:2026-02-25 15:16:07,558 | INFO | SIGNAL: NONE
+score=1.0 rr=5.05
+him_system.log:1453:2026-02-25 15:16:22,728 | INFO | SIGNAL: NONE
+score=1.0 rr=5.03
+him_system.log:1455:2026-02-25 15:16:37,883 | INFO | SIGNAL: NONE
+score=1.0 rr=5.03
+him_system.log:1457:2026-02-25 15:16:53,044 | INFO | SIGNAL: NONE
+score=1.0 rr=5.01
+him_system.log:1459:2026-02-25 15:17:08,192 | INFO | SIGNAL: NONE
+score=1.0 rr=4.99
+him_system.log:1461:2026-02-25 15:17:23,347 | INFO | SIGNAL: NONE
+score=1.0 rr=4.97
+him_system.log:1463:2026-02-25 15:17:38,492 | INFO | SIGNAL: NONE
+score=1.0 rr=4.93
+him_system.log:1465:2026-02-25 15:17:53,698 | INFO | SIGNAL: NONE
+score=1.0 rr=4.93
+him_system.log:1467:2026-02-25 15:18:08,875 | INFO | SIGNAL: NONE
+score=1.0 rr=4.93
+him_system.log:1469:2026-02-25 15:18:24,153 | INFO | SIGNAL: NONE
+score=1.0 rr=4.93
+him_system.log:1471:2026-02-25 15:18:39,556 | INFO | SIGNAL: NONE
+score=1.0 rr=4.92
+him_system.log:1473:2026-02-25 15:18:54,709 | INFO | SIGNAL: NONE
+score=1.0 rr=4.88
+him_system.log:1475:2026-02-25 15:19:09,850 | INFO | SIGNAL: NONE
+score=1.0 rr=4.42
+him_system.log:1477:2026-02-25 15:19:25,031 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1479:2026-02-25 15:19:40,210 | INFO | SIGNAL: NONE
+score=1.0 rr=4.39
+him_system.log:1481:2026-02-25 15:19:55,399 | INFO | SIGNAL: NONE
+score=1.0 rr=4.20
+him_system.log:1483:2026-02-25 15:20:10,576 | INFO | SIGNAL: NONE
+score=1.0 rr=4.20
+him_system.log:1485:2026-02-25 15:20:25,791 | INFO | SIGNAL: NONE
+score=1.0 rr=4.20
+him_system.log:1487:2026-02-25 15:20:40,943 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1489:2026-02-25 15:20:56,190 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1491:2026-02-25 15:21:11,411 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1493:2026-02-25 15:21:26,589 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1495:2026-02-25 15:21:41,835 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1497:2026-02-25 15:21:57,232 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1499:2026-02-25 15:22:12,442 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1501:2026-02-25 15:22:27,992 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1503:2026-02-25 15:22:43,282 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1505:2026-02-25 15:22:58,458 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1507:2026-02-25 15:23:13,617 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1509:2026-02-25 15:23:28,840 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1511:2026-02-25 15:23:44,314 | INFO | SIGNAL: NONE
+score=1.0 rr=4.18
+him_system.log:1513:2026-02-25 15:23:59,491 | INFO | SIGNAL: NONE
+score=1.0 rr=4.17
+him_system.log:1515:2026-02-25 15:24:14,677 | INFO | SIGNAL: NONE
+score=1.0 rr=4.13
+him_system.log:1517:2026-02-25 15:24:29,835 | INFO | SIGNAL: NONE
+score=1.0 rr=4.11
+him_system.log:1519:2026-02-25 15:24:45,003 | INFO | SIGNAL: NONE
+score=1.0 rr=4.11
+him_system.log:1521:2026-02-25 15:25:00,160 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1523:2026-02-25 15:25:15,337 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1525:2026-02-25 15:25:30,482 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1527:2026-02-25 15:25:45,644 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1529:2026-02-25 15:26:00,812 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1531:2026-02-25 15:26:16,024 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1533:2026-02-25 15:26:31,179 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1535:2026-02-25 15:26:46,365 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1537:2026-02-25 15:27:01,570 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1539:2026-02-25 15:27:16,744 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1541:2026-02-25 15:27:31,891 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1543:2026-02-25 15:27:47,064 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1545:2026-02-25 15:28:02,223 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1547:2026-02-25 15:28:17,386 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1549:2026-02-25 15:28:32,553 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1551:2026-02-25 15:28:47,713 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1553:2026-02-25 15:29:02,859 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1555:2026-02-25 15:29:18,032 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1557:2026-02-25 15:29:33,206 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1559:2026-02-25 15:29:48,358 | INFO | SIGNAL: NONE
+score=1.0 rr=4.10
+him_system.log:1561:2026-02-25 15:30:03,542 | INFO | SIGNAL: NONE
+score=0.5 rr=4.66
+him_system.log:1563:2026-02-25 15:30:18,771 | INFO | SIGNAL: NONE
+score=0.5 rr=4.60
+him_system.log:1565:2026-02-25 15:30:33,985 | INFO | SIGNAL: NONE
+score=0.5 rr=4.57
+him_system.log:1567:2026-02-25 15:30:49,219 | INFO | SIGNAL: NONE
+score=0.5 rr=4.56
+him_system.log:1569:2026-02-25 15:31:04,393 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1571:2026-02-25 15:31:19,569 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1573:2026-02-25 15:31:34,743 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1575:2026-02-25 15:31:49,939 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1577:2026-02-25 15:32:05,191 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1579:2026-02-25 15:32:20,393 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1581:2026-02-25 15:32:35,537 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1583:2026-02-25 15:32:50,705 | INFO | SIGNAL: NONE
+score=0.5 rr=4.54
+him_system.log:1585:2026-02-25 15:33:05,888 | INFO | SIGNAL: NONE
+score=1.0 rr=7.91
+him_system.log:1587:2026-02-25 15:33:21,076 | INFO | SIGNAL: NONE
+score=1.0 rr=7.91
+him_system.log:1589:2026-02-25 15:33:36,269 | INFO | SIGNAL: NONE
+score=1.0 rr=7.26
+him_system.log:1591:2026-02-25 15:33:51,501 | INFO | SIGNAL: NONE
+score=1.0 rr=7.24
+him_system.log:1593:2026-02-25 15:34:06,920 | INFO | SIGNAL: NONE
+score=1.0 rr=7.23
+him_system.log:1595:2026-02-25 15:34:22,187 | INFO | SIGNAL: NONE
+score=1.0 rr=7.21
+him_system.log:1597:2026-02-25 15:34:37,408 | INFO | SIGNAL: NONE
+score=1.0 rr=7.21
+him_system.log:1599:2026-02-25 15:34:52,610 | INFO | SIGNAL: NONE
+score=1.0 rr=7.06
+him_system.log:1601:2026-02-25 15:35:07,771 | INFO | SIGNAL: NONE
+score=1.0 rr=8.39
+him_system.log:1603:2026-02-25 15:35:22,932 | INFO | SIGNAL: NONE
+score=1.0 rr=7.96
+him_system.log:1605:2026-02-25 15:35:38,100 | INFO | SIGNAL: NONE
+score=1.0 rr=8.21
+him_system.log:1607:2026-02-25 15:35:53,273 | INFO | SIGNAL: NONE
+score=1.0 rr=7.83
+him_system.log:1609:2026-02-25 15:36:08,448 | INFO | SIGNAL: NONE
+score=1.0 rr=7.65
+him_system.log:1611:2026-02-25 15:36:23,663 | INFO | SIGNAL: NONE
+score=1.0 rr=7.98
+him_system.log:1613:2026-02-25 15:36:38,992 | INFO | SIGNAL: NONE
+score=1.0 rr=7.60
+him_system.log:1615:2026-02-25 15:36:54,262 | INFO | SIGNAL: NONE
+score=1.0 rr=7.60
+him_system.log:1617:2026-02-25 15:37:09,517 | INFO | SIGNAL: NONE
+score=1.0 rr=7.60
+him_system.log:1619:2026-02-25 15:37:24,751 | INFO | SIGNAL: NONE
+score=1.0 rr=7.46
+him_system.log:1621:2026-02-25 15:37:40,009 | INFO | SIGNAL: NONE
+score=1.0 rr=7.40
+him_system.log:1623:2026-02-25 15:37:56,902 | INFO | SIGNAL: NONE
+score=1.0 rr=7.40
+him_system.log:1625:2026-02-25 15:38:13,016 | INFO | SIGNAL: NONE
+score=1.0 rr=7.40
+him_system.log:1627:2026-02-25 15:38:28,202 | INFO | SIGNAL: NONE
+score=1.0 rr=7.40
+him_system.log:1629:2026-02-25 15:38:43,517 | INFO | SIGNAL: NONE
+score=1.0 rr=7.40
+him_system.log:1631:2026-02-25 15:38:58,990 | INFO | SIGNAL: NONE
+score=1.0 rr=7.40
+him_system.log:1633:2026-02-25 15:39:16,796 | INFO | SIGNAL: NONE
+score=1.0 rr=7.40
+him_system.log:1635:2026-02-25 15:39:32,048 | INFO | SIGNAL: NONE
+score=1.0 rr=7.77
+him_system.log:1637:2026-02-25 15:39:47,284 | INFO | SIGNAL: NONE
+score=1.0 rr=7.69
+him_system.log:1639:2026-02-25 15:40:02,830 | INFO | SIGNAL: NONE
+score=1.0 rr=8.61
+him_system.log:1641:2026-02-25 15:40:18,286 | INFO | SIGNAL: NONE
+score=1.0 rr=8.38
+him_system.log:1643:2026-02-25 15:40:33,813 | INFO | SIGNAL: NONE
+score=1.0 rr=8.13
+him_system.log:1645:2026-02-25 15:40:48,972 | INFO | SIGNAL: NONE
+score=1.0 rr=7.94
+him_system.log:1647:2026-02-25 15:41:04,146 | INFO | SIGNAL: NONE
+score=1.0 rr=7.94
+him_system.log:1649:2026-02-25 15:41:19,322 | INFO | SIGNAL: NONE
+score=1.0 rr=15.76
+him_system.log:1651:2026-02-25 15:41:34,524 | INFO | SIGNAL: NONE
+score=1.0 rr=15.76
+him_system.log:1653:2026-02-25 15:41:49,705 | INFO | SIGNAL: NONE
+score=1.0 rr=15.76
+him_system.log:1655:2026-02-25 15:42:04,897 | INFO | SIGNAL: NONE
+score=1.0 rr=7.98
+him_system.log:1657:2026-02-25 15:42:20,106 | INFO | SIGNAL: NONE
+score=1.0 rr=7.98
+him_system.log:1659:2026-02-25 15:42:35,337 | INFO | SIGNAL: NONE
+score=1.0 rr=7.98
+him_system.log:1661:2026-02-25 15:42:50,591 | INFO | SIGNAL: NONE
+score=1.0 rr=7.98
+him_system.log:1663:2026-02-25 15:43:05,860 | INFO | SIGNAL: NONE
+score=1.0 rr=7.72
+him_system.log:1665:2026-02-25 15:43:21,082 | INFO | SIGNAL: NONE
+score=1.0 rr=7.72
+him_system.log:1667:2026-02-25 15:43:36,257 | INFO | SIGNAL: NONE
+score=1.0 rr=7.72
+him_system.log:1669:2026-02-25 15:43:51,570 | INFO | SIGNAL: NONE
+score=1.0 rr=7.72
+him_system.log:1671:2026-02-25 15:44:07,092 | INFO | SIGNAL: NONE
+score=1.0 rr=7.72
+him_system.log:1674:2026-02-25 15:44:22,292 | INFO | SIGNAL: NONE
+score=1.0 rr=7.72
+him_system.log:1677:2026-02-25 15:44:37,457 | INFO | SIGNAL: NONE
+score=1.0 rr=7.98
+him_system.log:1680:2026-02-25 15:44:52,641 | INFO | SIGNAL: NONE
+score=1.0 rr=7.98
+him_system.log:1683:2026-02-25 15:45:07,845 | INFO | SIGNAL: NONE
+score=0.5 rr=9.16
+him_system.log:1686:2026-02-25 15:45:23,035 | INFO | SIGNAL: NONE
+score=1.0 rr=9.05
+him_system.log:1689:2026-02-25 15:45:38,230 | INFO | SIGNAL: NONE
+score=1.0 rr=9.05
+him_system.log:1692:2026-02-25 15:45:53,476 | INFO | SIGNAL: NONE
+score=1.0 rr=9.05
+him_system.log:1695:2026-02-25 15:46:08,936 | INFO | SIGNAL: NONE
+score=1.0 rr=9.05
+him_system.log:1698:2026-02-25 15:46:24,158 | INFO | SIGNAL: NONE
+score=1.0 rr=9.05
+him_system.log:1701:2026-02-25 15:46:39,375 | INFO | SIGNAL: NONE
+score=1.0 rr=8.99
+him_system.log:1703:2026-02-25 15:46:54,557 | INFO | SIGNAL: NONE
+score=1.0 rr=15.76
+him_system.log:1705:2026-02-25 15:47:09,743 | INFO | SIGNAL: NONE
+score=1.0 rr=15.76
+him_system.log:1707:2026-02-25 15:47:25,051 | INFO | SIGNAL: NONE
+score=1.0 rr=23.63
+him_system.log:1709:2026-02-25 15:47:40,235 | INFO | SIGNAL: NONE
+score=1.0 rr=23.63
+him_system.log:1713:2026-02-25 17:25:42,715 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1716:✅ BOS confirmed.
+him_system.log:1722:2026-02-25 17:25:58,119 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1725:✅ BOS confirmed.
+him_system.log:1731:2026-02-25 17:26:13,579 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1734:✅ BOS confirmed.
+him_system.log:1740:2026-02-25 17:26:29,046 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1743:✅ BOS confirmed.
+him_system.log:1749:2026-02-25 17:26:44,548 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1752:✅ BOS confirmed.
+him_system.log:1758:2026-02-25 17:27:00,383 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1761:✅ BOS confirmed.
+him_system.log:1767:2026-02-25 17:27:15,797 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1770:✅ BOS confirmed.
+him_system.log:1776:2026-02-25 17:27:31,178 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1779:✅ BOS confirmed.
+him_system.log:1785:2026-02-25 17:27:46,648 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1788:✅ BOS confirmed.
+him_system.log:1794:2026-02-25 17:28:02,031 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1797:✅ BOS confirmed.
+him_system.log:1803:2026-02-25 17:28:17,451 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1806:✅ BOS confirmed.
+him_system.log:1812:2026-02-25 17:28:32,857 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1815:✅ BOS confirmed.
+him_system.log:1821:2026-02-25 17:28:48,244 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1824:✅ BOS confirmed.
+him_system.log:1830:2026-02-25 17:29:03,620 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1833:✅ BOS confirmed.
+him_system.log:1839:2026-02-25 17:29:19,005 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1842:✅ BOS confirmed.
+him_system.log:1848:2026-02-25 17:29:34,429 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1851:✅ BOS confirmed.
+him_system.log:1857:2026-02-25 17:29:49,877 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1860:✅ BOS confirmed.
+him_system.log:1866:2026-02-25 17:30:05,372 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1868:2026-02-25 17:30:20,939 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1870:2026-02-25 17:30:36,112 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1872:2026-02-25 17:30:51,449 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1874:2026-02-25 17:31:06,638 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1876:2026-02-25 17:31:21,826 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1878:2026-02-25 17:31:37,063 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1880:2026-02-25 17:31:52,284 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1882:2026-02-25 17:32:07,485 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:1884:2026-02-25 17:32:22,662 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1887:✅ BOS confirmed.
+him_system.log:1893:2026-02-25 17:32:38,523 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1896:✅ BOS confirmed.
+him_system.log:1902:2026-02-25 17:32:55,313 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1905:✅ BOS confirmed.
+him_system.log:1911:2026-02-25 17:33:12,714 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1914:✅ BOS confirmed.
+him_system.log:1920:2026-02-25 17:33:29,122 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1923:✅ BOS confirmed.
+him_system.log:1929:2026-02-25 17:33:44,906 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1932:✅ BOS confirmed.
+him_system.log:1938:2026-02-25 17:34:00,586 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1941:✅ BOS confirmed.
+him_system.log:1947:2026-02-25 17:34:16,131 | INFO | SIGNAL: SELL
+score=0.0 rr=0.00
+him_system.log:1950:✅ BOS confirmed.
+him_system.log:2210:2026-02-25 19:00:54,156 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2212:2026-02-25 19:01:09,376 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2214:2026-02-25 19:01:24,692 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2216:2026-02-25 19:01:40,794 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2218:2026-02-25 19:01:56,849 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2220:2026-02-25 19:02:12,001 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2222:2026-02-25 19:02:27,178 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2224:2026-02-25 19:02:42,320 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2226:2026-02-25 19:02:57,537 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2228:2026-02-25 19:03:13,219 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2230:2026-02-25 19:03:28,719 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2232:2026-02-25 19:03:43,930 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2234:2026-02-25 19:03:59,194 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2236:2026-02-25 19:04:14,368 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2238:2026-02-25 19:04:29,559 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2240:2026-02-25 19:04:44,726 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2242:2026-02-25 19:04:59,887 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2244:2026-02-25 19:05:15,099 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2246:2026-02-25 19:05:30,241 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2248:2026-02-25 19:05:45,390 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2250:2026-02-25 19:06:00,551 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2252:2026-02-25 19:06:15,715 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2254:2026-02-25 19:06:30,927 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2256:2026-02-25 19:06:46,073 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2258:2026-02-25 19:07:01,251 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2260:2026-02-25 19:07:16,423 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2262:2026-02-25 19:07:31,598 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2264:2026-02-25 19:07:46,784 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2266:2026-02-25 19:08:01,958 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2268:2026-02-25 19:08:17,201 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2270:2026-02-25 19:08:32,373 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2272:2026-02-25 19:08:47,569 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2274:2026-02-25 19:09:02,763 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2276:2026-02-25 19:09:17,982 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2278:2026-02-25 19:09:33,137 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2280:2026-02-25 19:09:48,535 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2282:2026-02-25 19:10:03,738 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2284:2026-02-25 19:10:18,880 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2286:2026-02-25 19:10:34,030 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2288:2026-02-25 19:10:49,197 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2290:2026-02-25 19:11:04,332 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2292:2026-02-25 19:11:19,463 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2294:2026-02-25 19:11:34,609 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2296:2026-02-25 19:11:49,773 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2298:2026-02-25 19:12:04,933 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2300:2026-02-25 19:12:20,081 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2302:2026-02-25 19:12:35,234 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2304:2026-02-25 19:12:50,398 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2306:2026-02-25 19:13:05,550 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2308:2026-02-25 19:13:20,709 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2310:2026-02-25 19:13:35,863 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2312:2026-02-25 19:13:51,013 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2314:2026-02-25 19:14:06,152 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2316:2026-02-25 19:14:21,319 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2318:2026-02-25 19:14:36,463 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2320:2026-02-25 19:14:51,621 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2322:2026-02-25 19:15:06,779 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2324:2026-02-25 19:15:21,973 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2326:2026-02-25 19:15:37,163 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2328:2026-02-25 19:15:52,405 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2330:2026-02-25 19:16:07,854 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2332:2026-02-25 19:16:23,027 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2334:2026-02-25 19:16:38,161 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2336:2026-02-25 19:18:14,071 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2338:2026-02-25 19:18:29,471 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2340:2026-02-25 19:18:44,667 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2342:2026-02-25 19:18:59,800 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2344:2026-02-25 19:19:14,955 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2346:2026-02-25 19:19:30,090 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2348:2026-02-25 19:19:45,227 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2350:2026-02-25 19:20:00,379 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2352:2026-02-25 19:20:15,513 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2354:2026-02-25 19:20:30,676 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2356:2026-02-25 19:20:45,822 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2358:2026-02-25 19:21:00,980 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2360:2026-02-25 19:21:16,136 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2362:2026-02-25 19:21:31,285 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2364:2026-02-25 19:21:46,442 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2366:2026-02-25 19:22:01,666 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2368:2026-02-25 19:22:16,813 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2370:2026-02-25 19:22:31,957 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2372:2026-02-25 19:22:47,099 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2374:2026-02-25 19:23:02,248 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2376:2026-02-25 19:23:17,404 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2378:2026-02-25 19:23:32,565 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2380:2026-02-25 19:23:47,704 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2382:2026-02-25 19:24:02,890 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2384:2026-02-25 19:24:18,043 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2386:2026-02-25 19:24:33,195 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2388:2026-02-25 19:24:48,343 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2390:2026-02-25 19:25:03,497 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2392:2026-02-25 19:25:18,635 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2394:2026-02-25 19:25:33,851 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2396:2026-02-25 19:25:49,041 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2398:2026-02-25 19:26:04,195 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2400:2026-02-25 19:26:19,358 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2402:2026-02-25 19:26:34,540 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2404:2026-02-25 19:26:49,718 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2406:2026-02-25 19:27:04,861 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2408:2026-02-25 19:27:20,051 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2410:2026-02-25 19:27:35,197 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2412:2026-02-25 19:27:50,392 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2414:2026-02-25 19:28:05,860 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2416:2026-02-25 19:28:21,507 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2418:2026-02-25 19:28:36,679 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2420:2026-02-25 19:28:51,876 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2427:2026-02-25 19:29:07,021 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2430:2026-02-25 19:29:22,188 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2433:2026-02-25 19:29:37,441 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2435:2026-02-25 19:29:52,620 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:2896:2026-02-26 12:41:59,368 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2901:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2907:2026-02-26 12:42:20,682 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2912:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2918:2026-02-26 12:42:36,539 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2923:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2929:2026-02-26 12:42:53,772 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2934:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2940:2026-02-26 12:43:26,306 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2945:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2951:2026-02-26 12:44:09,785 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2956:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2962:2026-02-26 12:44:49,892 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2967:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2975:2026-02-26 12:45:14,216 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2980:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2986:2026-02-26 12:45:30,587 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:2991:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:2999:2026-02-26 12:50:04,148 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3004:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3010:2026-02-26 12:50:23,150 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3015:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3021:2026-02-26 12:51:00,728 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3026:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3032:2026-02-26 12:51:27,434 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3037:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3043:2026-02-26 12:51:45,421 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3048:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3054:2026-02-26 12:52:03,416 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3059:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3065:2026-02-26 12:52:22,316 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3070:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3076:2026-02-26 12:52:43,699 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3081:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3087:2026-02-26 12:53:05,080 | INFO | SIGNAL: BUY
+score=0.0 rr=0.00
+him_system.log:3092:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3101:2026-02-26 13:03:43,620 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3104:2026-02-26 13:03:59,628 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3107:2026-02-26 13:04:19,323 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3110:2026-02-26 13:04:37,248 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3113:2026-02-26 13:05:06,532 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3116:2026-02-26 13:05:26,574 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3121:2026-02-26 13:08:07,050 | INFO | SIGNAL: BUY
+score=2.4 rr=2.00
+him_system.log:3127:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3131:2026-02-26 13:08:24,945 | INFO | SIGNAL: BUY
+score=2.5 rr=2.00
+him_system.log:3137:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3141:2026-02-26 13:08:43,644 | INFO | SIGNAL: BUY
+score=2.5 rr=2.00
+him_system.log:3147:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3151:2026-02-26 13:09:34,399 | INFO | SIGNAL: BUY
+score=2.4 rr=2.00
+him_system.log:3157:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3161:2026-02-26 13:09:57,883 | INFO | SIGNAL: BUY
+score=2.3 rr=2.00
+him_system.log:3167:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3171:2026-02-26 13:10:30,794 | INFO | SIGNAL: BUY
+score=2.3 rr=2.00
+him_system.log:3177:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3181:2026-02-26 13:11:44,345 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3187:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3191:2026-02-26 13:12:04,652 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3197:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3201:2026-02-26 13:12:22,696 | INFO | SIGNAL: BUY
+score=2.4 rr=2.00
+him_system.log:3207:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3211:2026-02-26 13:12:40,877 | INFO | SIGNAL: BUY
+score=2.2 rr=2.00
+him_system.log:3217:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3221:2026-02-26 13:12:58,866 | INFO | SIGNAL: BUY
+score=2.3 rr=2.00
+him_system.log:3227:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3231:2026-02-26 13:13:22,949 | INFO | SIGNAL: BUY
+score=2.3 rr=2.00
+him_system.log:3237:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3241:2026-02-26 13:13:47,522 | INFO | SIGNAL: BUY
+score=2.3 rr=2.00
+him_system.log:3247:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3251:2026-02-26 13:14:06,491 | INFO | SIGNAL: BUY
+score=2.3 rr=2.00
+him_system.log:3257:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3261:2026-02-26 13:14:41,796 | INFO | SIGNAL: BUY
+score=2.3 rr=2.00
+him_system.log:3267:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3271:2026-02-26 13:15:06,927 | INFO | SIGNAL: BUY
+score=2.2 rr=2.00
+him_system.log:3276:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3281:2026-02-26 13:15:38,161 | INFO | SIGNAL: BUY
+score=2.1 rr=2.00
+him_system.log:3287:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3291:2026-02-26 13:15:57,842 | INFO | SIGNAL: BUY
+score=2.2 rr=2.00
+him_system.log:3297:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3301:2026-02-26 13:16:20,785 | INFO | SIGNAL: BUY
+score=2.1 rr=2.00
+him_system.log:3307:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3311:2026-02-26 13:17:32,362 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3317:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3321:2026-02-26 13:17:55,506 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3327:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3331:2026-02-26 13:18:34,731 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3336:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3341:2026-02-26 13:19:02,967 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3346:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3351:2026-02-26 13:19:36,362 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3356:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3361:2026-02-26 13:20:06,433 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3366:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3373:2026-02-26 14:24:27,662 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3378:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3383:2026-02-26 14:24:45,654 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3388:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3393:2026-02-26 14:25:03,347 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3398:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3403:2026-02-26 14:25:23,541 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3408:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3413:2026-02-26 14:25:41,494 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3418:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3423:2026-02-26 14:25:59,337 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3428:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3433:2026-02-26 14:26:17,585 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3438:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3443:2026-02-26 14:26:35,328 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3448:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3453:2026-02-26 14:26:52,980 | INFO | SIGNAL: BUY
+score=0.0 rr=2.00
+him_system.log:3458:❌ BOS not confirmed (BOS is REQUIRED).
+him_system.log:3465:2026-02-26 14:30:10,074 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3468:2026-02-26 14:30:25,278 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3471:2026-02-26 14:30:40,678 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3474:2026-02-26 14:30:55,973 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3477:2026-02-26 14:31:11,426 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3480:2026-02-26 14:31:26,627 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3483:2026-02-26 14:31:42,157 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3486:2026-02-26 14:31:57,392 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3489:2026-02-26 14:32:12,645 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3492:2026-02-26 14:32:27,848 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3495:2026-02-26 14:32:43,047 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3498:2026-02-26 14:32:58,253 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3501:2026-02-26 14:33:13,518 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3504:2026-02-26 14:33:28,728 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3507:2026-02-26 14:33:44,044 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3510:2026-02-26 14:33:59,240 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3513:2026-02-26 14:34:14,449 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3516:2026-02-26 14:34:29,663 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3519:2026-02-26 14:34:44,876 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3522:2026-02-26 14:35:00,070 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3525:2026-02-26 14:35:15,376 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3528:2026-02-26 14:35:30,596 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3531:2026-02-26 14:35:45,882 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3534:2026-02-26 14:36:01,119 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3537:2026-02-26 14:36:16,324 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3540:2026-02-26 14:36:31,546 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3543:2026-02-26 14:36:46,799 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3546:2026-02-26 14:37:02,037 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3549:2026-02-26 14:37:17,277 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3552:2026-02-26 14:37:32,543 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3555:2026-02-26 14:37:48,399 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3558:2026-02-26 14:38:03,648 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3561:2026-02-26 14:38:18,901 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3564:2026-02-26 14:38:34,174 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3567:2026-02-26 14:38:50,149 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3570:2026-02-26 14:39:05,485 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3573:2026-02-26 14:39:20,925 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3576:2026-02-26 14:39:36,187 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3579:2026-02-26 14:39:51,433 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3582:2026-02-26 14:40:06,644 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3585:2026-02-26 14:40:21,859 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3588:2026-02-26 14:40:37,078 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3591:2026-02-26 14:40:52,292 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3594:2026-02-26 14:41:07,599 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3597:2026-02-26 14:41:22,853 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3602:2026-02-26 14:43:06,258 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3605:2026-02-26 14:43:21,521 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3608:2026-02-26 14:43:36,775 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3611:2026-02-26 14:43:52,015 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3614:2026-02-26 14:44:07,249 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3617:2026-02-26 14:44:22,841 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3620:2026-02-26 14:44:38,169 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3623:2026-02-26 14:44:53,379 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3626:2026-02-26 14:45:08,663 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3629:2026-02-26 14:45:23,908 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3632:2026-02-26 14:45:39,207 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3635:2026-02-26 14:45:54,594 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3638:2026-02-26 14:46:09,821 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3641:2026-02-26 14:46:25,070 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3644:2026-02-26 14:46:40,305 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3647:2026-02-26 14:46:55,597 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3650:2026-02-26 14:47:10,844 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3653:2026-02-26 14:47:26,076 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3656:2026-02-26 14:47:41,320 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3659:2026-02-26 14:47:56,563 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3662:2026-02-26 14:48:11,805 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3665:2026-02-26 14:48:27,030 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3668:2026-02-26 14:48:42,286 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3671:2026-02-26 14:48:57,544 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3674:2026-02-26 14:49:12,760 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3677:2026-02-26 14:49:27,965 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3680:2026-02-26 14:49:43,166 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3683:2026-02-26 14:49:58,476 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3686:2026-02-26 14:50:13,694 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3689:2026-02-26 14:50:28,924 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3692:2026-02-26 14:50:44,150 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3695:2026-02-26 14:50:59,389 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3698:2026-02-26 14:51:14,611 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3701:2026-02-26 14:51:29,831 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3704:2026-02-26 14:51:45,036 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3707:2026-02-26 14:52:00,257 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3710:2026-02-26 14:52:15,475 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3713:2026-02-26 14:52:30,709 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3716:2026-02-26 14:52:45,926 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3719:2026-02-26 14:53:01,155 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3722:2026-02-26 14:53:16,380 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3725:2026-02-26 14:53:31,585 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3728:2026-02-26 14:53:46,798 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3731:2026-02-26 14:54:02,018 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3734:2026-02-26 14:54:17,232 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3737:2026-02-26 14:54:32,449 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3740:2026-02-26 14:54:47,658 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3743:2026-02-26 14:55:02,871 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3746:2026-02-26 14:55:18,090 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3749:2026-02-26 14:55:33,303 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3752:2026-02-26 14:55:48,507 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3755:2026-02-26 14:56:03,716 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3758:2026-02-26 14:56:18,942 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3761:2026-02-26 14:56:34,150 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3764:2026-02-26 14:56:49,375 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3767:2026-02-26 14:57:04,600 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3770:2026-02-26 14:57:19,861 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3773:2026-02-26 14:57:35,390 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3776:2026-02-26 14:57:51,515 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3779:2026-02-26 14:58:07,258 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3782:2026-02-26 14:58:23,196 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3787:2026-02-26 14:58:34,352 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3790:2026-02-26 14:58:38,991 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3793:2026-02-26 14:58:49,726 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3796:2026-02-26 14:58:59,178 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3799:2026-02-26 14:59:05,002 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3802:2026-02-26 14:59:14,452 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3805:2026-02-26 14:59:20,297 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3808:2026-02-26 14:59:29,684 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3811:2026-02-26 14:59:35,537 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3814:2026-02-26 14:59:44,913 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3817:2026-02-26 14:59:50,807 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3820:2026-02-26 15:00:00,214 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3823:2026-02-26 15:00:06,174 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3826:2026-02-26 15:00:16,837 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3829:2026-02-26 15:00:21,585 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3832:2026-02-26 15:00:32,782 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3835:2026-02-26 15:00:36,922 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3838:2026-02-26 15:00:48,111 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3840:2026-02-26 15:00:52,599 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3860:2026-02-26 15:01:08,897 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3861:2026-02-26 15:01:08,949 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3880:2026-02-26 15:01:25,376 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3883:2026-02-26 15:01:40,742 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00
+him_system.log:3888:2026-02-26 15:38:23,081 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3893:2026-02-26 15:40:15,683 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3896:2026-02-26 15:40:30,986 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3899:2026-02-26 15:40:46,390 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3902:2026-02-26 15:41:01,741 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3905:2026-02-26 15:41:17,018 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3910:2026-02-26 15:45:06,065 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3911:2026-02-26 15:45:06,276 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 32.340000000000146, 'threshold_points':
+8.55115675098307, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.601111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3914:2026-02-26 15:45:21,549 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3915:2026-02-26 15:45:21,769 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 31.63000000000011, 'threshold_points':
+8.59972817955452, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.465111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3918:2026-02-26 15:45:37,004 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3919:2026-02-26 15:45:37,239 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 32.36999999999989, 'threshold_points':
+8.601871036697359, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.459111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3922:2026-02-26 15:45:52,544 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3923:2026-02-26 15:45:52,870 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 32.220000000000255, 'threshold_points':
+8.601871036697359, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.459111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3926:2026-02-26 15:46:08,315 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3927:2026-02-26 15:46:08,572 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 32.76000000000022, 'threshold_points':
+8.657585322411627, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.303111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3930:2026-02-26 15:46:23,855 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3931:2026-02-26 15:46:24,114 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 32.840000000000146, 'threshold_points':
+8.688299608125932, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.217111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3934:2026-02-26 15:46:39,407 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3935:2026-02-26 15:46:39,623 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 33.030000000000655, 'threshold_points':
+8.688299608125932, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.217111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3938:2026-02-26 15:46:54,896 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3939:2026-02-26 15:46:55,104 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 33.159999999999854, 'threshold_points':
+8.688299608125932, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.217111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3942:2026-02-26 15:47:10,363 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3943:2026-02-26 15:47:10,602 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 34.970000000000255, 'threshold_points':
+8.73829960812592, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.077111396862, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3946:2026-02-26 15:47:25,900 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3947:2026-02-26 15:47:26,107 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 34.07000000000062, 'threshold_points':
+8.742585322411664, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.0651113968615, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3950:2026-02-26 15:47:41,359 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3951:2026-02-26 15:47:41,621 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 34.80000000000018, 'threshold_points':
+8.742585322411664, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.0651113968615, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3954:2026-02-26 15:47:57,024 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3955:2026-02-26 15:47:57,579 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 36.32000000000062, 'threshold_points':
+8.933299608125953, 'supertrend_dir': 'bearish', 'supertrend_value':
+5197.531111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3958:2026-02-26 15:48:13,056 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3959:2026-02-26 15:48:13,344 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 35.220000000000255, 'threshold_points':
+8.933299608125953, 'supertrend_dir': 'bearish', 'supertrend_value':
+5197.531111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3962:2026-02-26 15:48:28,644 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3963:2026-02-26 15:48:28,873 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 32.600000000000364, 'threshold_points':
+8.933299608125953, 'supertrend_dir': 'bearish', 'supertrend_value':
+5197.531111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3966:2026-02-26 15:48:44,139 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3967:2026-02-26 15:48:44,370 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 32.039999999999964, 'threshold_points':
+8.933299608125953, 'supertrend_dir': 'bearish', 'supertrend_value':
+5197.531111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3970:2026-02-26 15:48:59,648 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3971:2026-02-26 15:48:59,863 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 29.829999999999927, 'threshold_points':
+9.022585322411668, 'supertrend_dir': 'bearish', 'supertrend_value':
+5198.531111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3974:2026-02-26 15:49:15,156 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3975:2026-02-26 15:49:15,422 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 28.840000000000146, 'threshold_points':
+9.09401389384024, 'supertrend_dir': 'bearish', 'supertrend_value':
+5199.331111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3978:2026-02-26 15:49:30,699 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3979:2026-02-26 15:49:30,925 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 27.140000000000327, 'threshold_points':
+9.25544246526876, 'supertrend_dir': 'bearish', 'supertrend_value':
+5201.139111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3982:2026-02-26 15:49:46,302 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3983:2026-02-26 15:49:46,634 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 27.13000000000011, 'threshold_points':
+9.25544246526876, 'supertrend_dir': 'bearish', 'supertrend_value':
+5201.139111396861, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3986:2026-02-26 15:50:02,070 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3987:2026-02-26 15:50:02,573 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 26.079999999999927, 'threshold_points':
+9.30329960812591, 'supertrend_dir': 'bearish', 'supertrend_value':
+5201.67511139686, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'ranging', 'LTF_trend': 'bullish', 'bias_source': 'HTF'}
+him_system.log:3992:2026-02-26 16:11:00,656 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3993:2026-02-26 16:11:00,856 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 11.760000000000218, 'threshold_points':
+9.264900656525112, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:3996:2026-02-26 16:11:16,107 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:3997:2026-02-26 16:11:16,361 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 11.650000000000546, 'threshold_points':
+9.264900656525112, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4000:2026-02-26 16:11:31,612 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4001:2026-02-26 16:11:31,824 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 11.430000000000291, 'threshold_points':
+9.264900656525112, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4004:2026-02-26 16:11:47,255 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4005:2026-02-26 16:11:47,482 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.86999999999989, 'threshold_points':
+9.264900656525112, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4008:2026-02-26 16:12:02,739 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4009:2026-02-26 16:12:02,981 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.710000000000036, 'threshold_points':
+9.347757799382245, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4012:2026-02-26 16:12:18,252 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4013:2026-02-26 16:12:18,456 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.8100000000004, 'threshold_points':
+9.347757799382245, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4016:2026-02-26 16:12:33,699 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4017:2026-02-26 16:12:33,899 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 4.110034592373715, 'proximity_side': 'BUY',
+'proximity_best_dist': 8.980000000000473, 'threshold_points':
+9.364900656525087, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4020:2026-02-26 16:12:49,188 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4021:2026-02-26 16:12:49,467 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 6.47437883365167, 'proximity_side': 'BUY',
+'proximity_best_dist': 8.800000000000182, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4024:2026-02-26 16:13:04,874 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4025:2026-02-26 16:13:05,072 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 2.22321423517558, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.200000000000728, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4028:2026-02-26 16:13:20,293 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4029:2026-02-26 16:13:20,525 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.510000000000218, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4032:2026-02-26 16:13:35,820 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4033:2026-02-26 16:13:36,035 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 1.7980977753289373, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.240000000000691, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4036:2026-02-26 16:13:51,301 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4037:2026-02-26 16:13:51,531 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 6.155541488769105, 'proximity_side': 'BUY',
+'proximity_best_dist': 8.829999999999927, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4040:2026-02-26 16:14:06,761 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4041:2026-02-26 16:14:06,977 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 2.648330695022222, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.160000000000764, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4044:2026-02-26 16:14:22,255 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4045:2026-02-26 16:14:22,484 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 0.20391105090644476, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.390000000000327, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4048:2026-02-26 16:14:37,732 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4049:2026-02-26 16:14:37,962 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.44000000000051, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4052:2026-02-26 16:14:53,220 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4053:2026-02-26 16:14:53,437 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.970000000000255, 'threshold_points':
+9.409186370810794, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4056:2026-02-26 16:15:08,688 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4057:2026-02-26 16:15:08,929 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 0.39028416897609736, 'proximity_side': 'BUY',
+'proximity_best_dist': 8.740000000000691, 'threshold_points':
+8.774244487181418, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4060:2026-02-26 16:15:24,316 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4061:2026-02-26 16:15:24,624 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.090000000000146, 'threshold_points':
+8.787101630038581, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4064:2026-02-26 16:15:39,893 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4065:2026-02-26 16:15:40,165 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.19000000000051, 'threshold_points':
+8.79210163003856, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4068:2026-02-26 16:15:55,428 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4069:2026-02-26 16:15:55,640 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.800000000000182, 'threshold_points':
+8.839244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4072:2026-02-26 16:16:10,887 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4073:2026-02-26 16:16:11,155 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.75, 'threshold_points': 8.839244487181473,
+'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068,
+'supertrend_ok': False, 'HTF_trend': 'bullish', 'MTF_trend': 'bearish',
+'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4076:2026-02-26 16:16:26,426 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4077:2026-02-26 16:16:26,707 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.0600000000004, 'threshold_points':
+8.867101630038574, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4080:2026-02-26 16:16:42,004 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4081:2026-02-26 16:16:42,292 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.070000000000618, 'threshold_points':
+8.867101630038574, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4084:2026-02-26 16:16:57,779 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4085:2026-02-26 16:16:58,044 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.200000000000728, 'threshold_points':
+8.88353020146718, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4088:2026-02-26 16:17:13,320 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4089:2026-02-26 16:17:13,546 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.970000000000255, 'threshold_points':
+8.916387344324324, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4092:2026-02-26 16:17:28,827 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4093:2026-02-26 16:17:29,055 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 11.430000000000291, 'threshold_points':
+8.96567305861001, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4096:2026-02-26 16:17:44,312 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4097:2026-02-26 16:17:44,570 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 12.410000000000764, 'threshold_points':
+9.017815915752902, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4100:2026-02-26 16:17:59,828 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4101:2026-02-26 16:18:00,058 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 13.039999999999964, 'threshold_points':
+9.09853020146713, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4104:2026-02-26 16:18:15,340 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4105:2026-02-26 16:18:15,574 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 13.329999999999927, 'threshold_points':
+9.09853020146713, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4108:2026-02-26 16:18:30,910 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4109:2026-02-26 16:18:31,238 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 13.360000000000582, 'threshold_points':
+9.109244487181455, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4112:2026-02-26 16:18:46,511 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4113:2026-02-26 16:18:46,842 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 13.710000000000036, 'threshold_points':
+9.110673058609992, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4116:2026-02-26 16:19:02,120 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4117:2026-02-26 16:19:02,364 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.420000000000073, 'threshold_points':
+9.167815915752863, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4120:2026-02-26 16:19:17,940 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4121:2026-02-26 16:19:18,846 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.760000000000218, 'threshold_points':
+9.185673058610005, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4124:2026-02-26 16:19:34,661 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4125:2026-02-26 16:19:34,938 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.400000000000546, 'threshold_points':
+9.185673058610005, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4128:2026-02-26 16:19:50,247 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4129:2026-02-26 16:19:50,524 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.010000000000218, 'threshold_points':
+9.191387344324285, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4132:2026-02-26 16:20:06,016 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4133:2026-02-26 16:20:06,343 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 13.710000000000036, 'threshold_points':
+9.191387344324285, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4136:2026-02-26 16:20:21,724 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4137:2026-02-26 16:20:21,982 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.800000000000182, 'threshold_points':
+9.208530201467127, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4140:2026-02-26 16:20:37,278 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4141:2026-02-26 16:20:37,544 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.710000000000036, 'threshold_points':
+9.208530201467127, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4144:2026-02-26 16:20:52,878 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4145:2026-02-26 16:20:53,497 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.410000000000764, 'threshold_points':
+9.214244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4148:2026-02-26 16:21:08,871 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4149:2026-02-26 16:21:09,156 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.320000000000618, 'threshold_points':
+9.214244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4152:2026-02-26 16:21:24,485 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4153:2026-02-26 16:21:24,815 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.69000000000051, 'threshold_points':
+9.214244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4156:2026-02-26 16:21:40,151 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4157:2026-02-26 16:21:40,426 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.850000000000364, 'threshold_points':
+9.214244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4160:2026-02-26 16:21:55,763 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4161:2026-02-26 16:21:56,096 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.400000000000546, 'threshold_points':
+9.214244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4164:2026-02-26 16:22:12,556 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4165:2026-02-26 16:22:15,530 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.520000000000437, 'threshold_points':
+9.214244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4168:2026-02-26 16:22:31,867 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4169:2026-02-26 16:22:32,217 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.61999999999989, 'threshold_points':
+9.214244487181473, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4172:2026-02-26 16:22:47,487 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4173:2026-02-26 16:22:47,795 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 15.0600000000004, 'threshold_points':
+9.22924448718141, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4176:2026-02-26 16:23:03,114 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4177:2026-02-26 16:23:03,354 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 15.260000000000218, 'threshold_points':
+9.22924448718141, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4180:2026-02-26 16:23:18,637 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4181:2026-02-26 16:23:18,901 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 15.640000000000327, 'threshold_points':
+9.249244487181457, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4184:2026-02-26 16:23:34,293 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4185:2026-02-26 16:23:34,683 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 15.25, 'threshold_points': 9.257815915752877,
+'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068,
+'supertrend_ok': False, 'HTF_trend': 'bullish', 'MTF_trend': 'bearish',
+'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4188:2026-02-26 16:23:49,996 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4189:2026-02-26 16:23:50,284 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 15.8100000000004, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4192:2026-02-26 16:24:05,671 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4193:2026-02-26 16:24:05,956 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.5600000000004, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4196:2026-02-26 16:24:21,306 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4197:2026-02-26 16:24:21,585 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.140000000000327, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4200:2026-02-26 16:24:36,895 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4201:2026-02-26 16:24:37,357 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 13.970000000000255, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4204:2026-02-26 16:24:52,791 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4205:2026-02-26 16:24:53,026 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 14.44000000000051, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4208:2026-02-26 16:25:08,310 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4209:2026-02-26 16:25:08,568 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 13.289999999999964, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4212:2026-02-26 16:25:23,841 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4213:2026-02-26 16:25:24,098 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 11.69000000000051, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4216:2026-02-26 16:25:39,434 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4217:2026-02-26 16:25:39,718 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 12.350000000000364, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4220:2026-02-26 16:25:55,000 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4221:2026-02-26 16:25:55,224 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 12.400000000000546, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4224:2026-02-26 16:26:10,507 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4225:2026-02-26 16:26:10,773 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 12.38000000000011, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4228:2026-02-26 16:26:26,031 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4229:2026-02-26 16:26:26,256 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 11.350000000000364, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4232:2026-02-26 16:26:41,531 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4233:2026-02-26 16:26:41,962 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.770000000000437, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4236:2026-02-26 16:26:57,230 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4237:2026-02-26 16:26:57,475 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.350000000000364, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4240:2026-02-26 16:27:12,756 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4241:2026-02-26 16:27:13,084 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 1.3700575363588454, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.150000000000546, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4244:2026-02-26 16:27:28,447 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4245:2026-02-26 16:27:28,703 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.930000000000291, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4248:2026-02-26 16:27:44,019 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4249:2026-02-26 16:27:44,267 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.44000000000051, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4252:2026-02-26 16:27:59,860 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4253:2026-02-26 16:28:00,518 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 1.9090189705883214, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.100000000000364, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4256:2026-02-26 16:28:16,061 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4257:2026-02-26 16:28:16,369 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout', 'watch_state':
+'WATCH_COUNTER_BREAKOUT', 'breakout_state': 'BREAKOUT_SELL_CONFIRMED',
+'breakout_side': 'SELL', 'bos': None, 'retest_ok': False,
+'proximity_score': 1.8012266837404656, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.110000000000582, 'threshold_points':
+9.277101630038558, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4260:2026-02-26 16:28:31,777 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4261:2026-02-26 16:28:32,142 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.590000000000146, 'threshold_points':
+9.278530201467161, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4264:2026-02-26 16:28:47,565 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4265:2026-02-26 16:28:47,804 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.760000000000218, 'threshold_points':
+9.278530201467161, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4268:2026-02-26 16:29:03,081 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4269:2026-02-26 16:29:03,319 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.25, 'threshold_points': 9.278530201467161,
+'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068,
+'supertrend_ok': False, 'HTF_trend': 'bullish', 'MTF_trend': 'bearish',
+'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4272:2026-02-26 16:29:18,592 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4273:2026-02-26 16:29:19,395 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.5, 'threshold_points': 9.278530201467161,
+'supertrend_dir': 'bearish', 'supertrend_value': 5202.787901552068,
+'supertrend_ok': False, 'HTF_trend': 'bullish', 'MTF_trend': 'bearish',
+'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4276:2026-02-26 16:29:34,684 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4277:2026-02-26 16:29:34,973 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.590000000000146, 'threshold_points':
+9.278530201467161, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4280:2026-02-26 16:29:50,221 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4281:2026-02-26 16:29:50,465 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,counter_breakout,no_bos',
+'watch_state': 'WATCH_COUNTER_BREAKOUT', 'breakout_state':
+'BREAKOUT_SELL_CONFIRMED', 'breakout_side': 'SELL', 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.110000000000582, 'threshold_points':
+9.278530201467161, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'ranging', 'bias_source': 'HTF'}
+him_system.log:4284:2026-02-26 16:30:05,844 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4285:2026-02-26 16:30:06,069 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.760000000000218, 'threshold_points':
+8.620778044219486, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4288:2026-02-26 16:30:21,312 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4289:2026-02-26 16:30:21,554 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.160000000000764, 'threshold_points':
+8.655778044219536, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4292:2026-02-26 16:30:36,903 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4293:2026-02-26 16:30:37,140 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.69000000000051, 'threshold_points':
+8.710778044219502, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4296:2026-02-26 16:30:52,444 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4297:2026-02-26 16:30:52,686 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 11.410000000000764, 'threshold_points':
+8.75363518707667, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4300:2026-02-26 16:31:07,977 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4301:2026-02-26 16:31:08,290 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.829999999999927, 'threshold_points':
+8.75363518707667, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4304:2026-02-26 16:31:23,927 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4305:2026-02-26 16:31:24,144 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.170000000000073, 'threshold_points':
+8.787206615648117, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4308:2026-02-26 16:31:39,407 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4309:2026-02-26 16:31:39,899 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.640000000000327, 'threshold_points':
+8.800063758505216, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4312:2026-02-26 16:31:55,317 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4313:2026-02-26 16:31:55,682 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 8.201078954949223,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.140000000000327,
+'threshold_points': 8.86720661564811, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4316:2026-02-26 16:32:11,046 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4317:2026-02-26 16:32:11,411 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 6.3966775584880216,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.300000000000182,
+'threshold_points': 8.86720661564811, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4320:2026-02-26 16:32:26,664 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4321:2026-02-26 16:32:26,903 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 9.616494330265903,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.050000000000182,
+'threshold_points': 8.906492329933837, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4324:2026-02-26 16:32:42,216 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4325:2026-02-26 16:32:42,502 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 17.377272186281935,
+'proximity_side': 'BUY', 'proximity_best_dist': 7.369999999999891,
+'threshold_points': 8.920063758505236, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4328:2026-02-26 16:32:57,805 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4329:2026-02-26 16:32:58,460 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 11.59135823532489,
+'proximity_side': 'BUY', 'proximity_best_dist': 7.900000000000546,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4332:2026-02-26 16:33:13,830 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4333:2026-02-26 16:33:14,065 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 5.1005971943753226,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.480000000000473,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4336:2026-02-26 16:33:29,352 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4337:2026-02-26 16:33:29,617 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 5.995874579333182,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.400000000000546,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4340:2026-02-26 16:33:44,939 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4341:2026-02-26 16:33:45,302 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 8.010248695493454,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.220000000000255,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4344:2026-02-26 16:34:00,752 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4345:2026-02-26 16:34:02,115 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 1.5194876545438858,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.800000000000182,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4348:2026-02-26 16:34:17,655 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4349:2026-02-26 16:34:18,145 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 6.891151964291041,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.320000000000618,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4352:2026-02-26 16:34:33,717 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4353:2026-02-26 16:34:34,111 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 3.645771443816257,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.610000000000582,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4356:2026-02-26 16:34:50,654 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4357:2026-02-26 16:34:52,102 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 9.260000000000218, 'threshold_points':
+8.935778044219541, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4360:2026-02-26 16:35:09,250 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4361:2026-02-26 16:35:09,704 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 10.480000000000473, 'threshold_points':
+8.935778044219541, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4364:2026-02-26 16:35:25,050 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4365:2026-02-26 16:35:25,401 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': None,
+'retest_ok': False, 'proximity_score': 5.883964906210905,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.410000000000764,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4370:2026-02-26 16:35:42,169 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4371:2026-02-26 16:35:42,510 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 6.219693925577736,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.38000000000011,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4374:2026-02-26 16:35:57,949 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4375:2026-02-26 16:35:58,410 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 8.569797061094661,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.170000000000073,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4378:2026-02-26 16:36:15,029 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4
+him_system.log:4379:2026-02-26 16:36:29,959 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict,no_bos', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 0.0, 'proximity_side': 'BUY',
+'proximity_best_dist': 8.950000000000728, 'threshold_points':
+8.935778044219541, 'supertrend_dir': 'bearish', 'supertrend_value':
+5202.787901552068, 'supertrend_ok': False, 'HTF_trend': 'bullish',
+'MTF_trend': 'bearish', 'LTF_trend': 'bearish', 'bias_source': 'HTF'}
+him_system.log:4383:2026-02-26 16:42:20,398 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=4 bos=False supertrend_ok=False
+him_system.log:4384:2026-02-26 16:42:20,698 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'NONE',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 7.226880983657871,
+'proximity_side': 'BUY', 'proximity_best_dist': 8.289999999999964,
+'threshold_points': 8.935778044219541, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4388:2026-02-26 16:59:11,610 | INFO | SIGNAL: NONE
+score=0.1 rr=0.00 confidence_py=5 bos=False supertrend_ok=False
+him_system.log:4389:2026-02-26 16:59:12,409 | INFO | NONE_REASON:
+{'blocked_by': 'supertrend_conflict', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 53.75633674409232,
+'proximity_side': 'BUY', 'proximity_best_dist': 4.100000000000364,
+'threshold_points': 8.866079612489576, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': False,
+'HTF_trend': 'bullish', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'HTF'}
+him_system.log:4393:2026-02-26 17:01:12,913 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4394:2026-02-26 17:01:13,169 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 45.750903407335656,
+'proximity_side': 'BUY', 'proximity_best_dist': 4.510000000000218,
+'threshold_points': 8.313502497311758, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4397:2026-02-26 17:01:23,660 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4398:2026-02-26 17:01:23,945 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 44.18718221951926,
+'proximity_side': 'BUY', 'proximity_best_dist': 4.640000000000327,
+'threshold_points': 8.313502497311758, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4401:2026-02-26 17:01:34,315 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4402:2026-02-26 17:01:35,019 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 47.79576957601779,
+'proximity_side': 'BUY', 'proximity_best_dist': 4.3400000000001455,
+'threshold_points': 8.313502497311758, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4406:2026-02-26 17:04:11,219 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4407:2026-02-26 17:04:11,483 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 79.02516419908375,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.7800000000006548,
+'threshold_points': 8.486359640168907, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4410:2026-02-26 17:04:21,770 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4411:2026-02-26 17:04:22,092 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 75.01873488880686,
+'proximity_side': 'BUY', 'proximity_best_dist': 2.119999999999891,
+'threshold_points': 8.486359640168907, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4414:2026-02-26 17:04:32,478 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4415:2026-02-26 17:04:32,722 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 78.21314750056247,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.8500000000003638,
+'threshold_points': 8.491359640168884, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4418:2026-02-26 17:04:43,067 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4419:2026-02-26 17:04:43,320 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 79.86188228430723,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.7100000000000364,
+'threshold_points': 8.491359640168884, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4422:2026-02-26 17:04:53,633 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4423:2026-02-26 17:04:53,934 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 81.2798077059095,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.5900000000001455,
+'threshold_points': 8.49350249731179, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4426:2026-02-26 17:05:04,232 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4427:2026-02-26 17:05:04,544 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 84.73782198258746,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.300000000000182,
+'threshold_points': 8.517788211597448, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4430:2026-02-26 17:05:14,900 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4431:2026-02-26 17:05:15,504 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 84.39347028003994,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.3299999999999272,
+'threshold_points': 8.522073925883191, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4434:2026-02-26 17:05:25,917 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4435:2026-02-26 17:05:26,231 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 84.86283959492556,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.2899999999999636,
+'threshold_points': 8.522073925883191, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4438:2026-02-26 17:05:36,528 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4439:2026-02-26 17:05:36,784 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 79.3685011289191,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.7600000000002183,
+'threshold_points': 8.530645354454613, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+him_system.log:4442:2026-02-26 17:05:47,062 | INFO | SIGNAL: NONE
+score=0.0 rr=0.00 confidence_py=0 bos=False supertrend_ok=True
+him_system.log:4443:2026-02-26 17:05:47,315 | INFO | NONE_REASON:
+{'blocked_by': 'no_bos', 'watch_state': 'WATCH_PROXIMITY',
+'breakout_state': 'NONE', 'breakout_side': None, 'bos': False,
+'retest_ok': False, 'proximity_score': 80.89241865917049,
+'proximity_side': 'BUY', 'proximity_best_dist': 1.6300000000001091,
+'threshold_points': 8.530645354454613, 'supertrend_dir': 'bearish',
+'supertrend_value': 5202.787901552068, 'supertrend_ok': True,
+'HTF_trend': 'ranging', 'MTF_trend': 'bearish', 'LTF_trend': 'bearish',
+'bias_source': 'MTF_FALLBACK'}
+
+
 PS C:\Hybrid_Intelligence_Mentor>

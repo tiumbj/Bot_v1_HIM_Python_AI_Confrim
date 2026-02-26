@@ -1,23 +1,31 @@
 """
-api_server.py
-Version: 1.1.4
+api_server.py — HIM Intelligent Dashboard API
+Version: 1.2.0
+
 Changelog:
-- 1.1.4:
-  - Fix: normalize config values (replace None/invalid/empty dict) with sane defaults
-  - Auto-migrate: if config was normalized, write back to config.json to prevent recurring engine float(None) crashes
-  - /api/status config snapshot becomes stable (no blank risk/supertrend/timeframes if they were None)
+- 1.2.0 (2026-02-26):
+  - FIX: /api/mode endpoint (now supports /api/mode/<mode_id> correctly)
+  - UX: rename modes to human-friendly IDs: precision / balanced / frequent
+  - COMPAT: still accepts legacy A/B/C mode IDs (A->precision, B->balanced, C->frequent)
+  - STRATEGY: add breakout config keys designed for Intelligent Dashboard buttons:
+      breakout.confirm_buffer_atr
+      breakout.require_retest
+      breakout.retest_band_atr
+      breakout.proximity_threshold_atr
+      breakout.proximity_min_score
+  - SAFETY: atomic config write, normalized defaults, stable /api/status snapshot
 Notes:
-- Commissioning default for Telegram test remains plain text (parse_mode=None)
 - Never calls mt5.shutdown()
+- Telegram test default remains plain text (parse_mode=None)
 """
 
 from __future__ import annotations
 
-import os
 import json
-import time
-import threading
 import logging
+import os
+import threading
+import time
 from typing import Any, Dict, Tuple
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -29,6 +37,9 @@ from telegram_notifier import TelegramNotifier
 from performance_tracker import PerformanceTracker
 
 
+# -----------------------------
+# Logging
+# -----------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -37,6 +48,23 @@ logging.basicConfig(
 logger = logging.getLogger("HIM")
 
 
+# -----------------------------
+# Paths
+# -----------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+DASHBOARD_HTML = os.path.join(BASE_DIR, "dashboard.html")
+
+app = Flask(__name__)
+mt5_lock = threading.Lock()
+
+engine = TradingEngine(config_path=CONFIG_PATH)
+tg = TelegramNotifier(config_path=CONFIG_PATH)
+
+
+# -----------------------------
+# JSON utils
+# -----------------------------
 def _safe_read_json(path: str) -> Dict[str, Any]:
     try:
         if not os.path.exists(path):
@@ -49,7 +77,7 @@ def _safe_read_json(path: str) -> Dict[str, Any]:
         return {}
 
 
-def _safe_write_json(path: str, data: Dict[str, Any]) -> bool:
+def _safe_write_json_atomic(path: str, data: Dict[str, Any]) -> bool:
     try:
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -71,6 +99,168 @@ def _deep_merge(dst: Dict[str, Any], src: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _is_blank_dict(x: Any) -> bool:
+    return isinstance(x, dict) and len(x) == 0
+
+
+# -----------------------------
+# Config normalization
+# -----------------------------
+def _normalize_config(cfg: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
+    """
+    Replace None/invalid values with sane defaults (commissioning safe)
+    Return: (normalized_cfg, changed_flag)
+    """
+    changed = False
+    out = dict(cfg) if isinstance(cfg, dict) else {}
+
+    def set_if_missing_or_none(key: str, default: Any) -> None:
+        nonlocal changed, out
+        if key not in out or out.get(key) is None:
+            out[key] = default
+            changed = True
+
+    def ensure_dict(key: str, default: Dict[str, Any]) -> None:
+        nonlocal changed, out
+        v = out.get(key)
+        if v is None or not isinstance(v, dict) or _is_blank_dict(v):
+            out[key] = dict(default)
+            changed = True
+
+    def ensure_float(d: Dict[str, Any], key: str, default: float) -> bool:
+        nonlocal changed
+        v = d.get(key)
+        if v is None:
+            d[key] = float(default)
+            changed = True
+            return True
+        try:
+            d[key] = float(v)
+            return False
+        except Exception:
+            d[key] = float(default)
+            changed = True
+            return True
+
+    def ensure_int(d: Dict[str, Any], key: str, default: int) -> bool:
+        nonlocal changed
+        v = d.get(key)
+        if v is None:
+            d[key] = int(default)
+            changed = True
+            return True
+        try:
+            d[key] = int(float(v))
+            return False
+        except Exception:
+            d[key] = int(default)
+            changed = True
+            return True
+
+    # Top-level defaults
+    set_if_missing_or_none("mode", "balanced")
+    set_if_missing_or_none("symbol", "GOLD")
+    set_if_missing_or_none("enable_execution", False)
+    ensure_int(out, "confidence_threshold", 75)
+    ensure_float(out, "min_score", 7.0)
+    ensure_float(out, "min_rr", 2.0)
+    ensure_float(out, "lot", 0.01)
+
+    # Nested defaults
+    ensure_dict(out, "timeframes", {"htf": "H4", "mtf": "H1", "ltf": "M15"})
+    ensure_dict(out, "risk", {"atr_period": 14, "atr_sl_mult": 1.8})
+    ensure_dict(out, "supertrend", {"period": 10, "multiplier": 3.0})
+
+    # Breakout/Option-C knobs for dashboard buttons
+    ensure_dict(
+        out,
+        "breakout",
+        {
+            "confirm_buffer_atr": 0.0,      # 0.0 = strict close > pivot
+            "require_retest": True,         # Option C default
+            "retest_band_atr": 0.25,        # band around ref for retest
+            "proximity_threshold_atr": 0.8, # proximity threshold in ATR units
+            "proximity_min_score": 50,      # 0..100
+        },
+    )
+    if isinstance(out.get("breakout"), dict):
+        b = out["breakout"]
+        ensure_float(b, "confirm_buffer_atr", 0.0)
+        # bool: accept only real bool, else coerce
+        if b.get("require_retest") is None:
+            b["require_retest"] = True
+            changed = True
+        else:
+            b["require_retest"] = bool(b.get("require_retest"))
+        ensure_float(b, "retest_band_atr", 0.25)
+        ensure_float(b, "proximity_threshold_atr", 0.8)
+        ensure_int(b, "proximity_min_score", 50)
+
+    # AI defaults (status only)
+    ensure_dict(
+        out,
+        "ai",
+        {
+            "enabled": False,
+            "provider": "openai",
+            "api_key_env": "OPENAI_API_KEY",
+            "timeout_seconds": 10,
+            "retry_attempts": 3,
+            "fallback_to_technical": True,
+            "model": "",
+        },
+    )
+    if isinstance(out.get("ai"), dict):
+        ai = out["ai"]
+        ai["enabled"] = bool(ai.get("enabled", False))
+        if not (ai.get("provider") or "").strip():
+            ai["provider"] = "openai"
+            changed = True
+        if not (ai.get("api_key_env") or "").strip():
+            ai["api_key_env"] = "OPENAI_API_KEY"
+            changed = True
+        if ai.get("model") is None:
+            ai["model"] = ""
+            changed = True
+
+    # Telegram defaults
+    ensure_dict(
+        out,
+        "telegram",
+        {
+            "enabled": True,
+            "token_env": "TELEGRAM_BOT_TOKEN",
+            "chat_id_env": "TELEGRAM_CHAT_ID",
+            "notify_on": ["signal", "trade", "error"],
+            "cooldown_sec": 900,
+        },
+    )
+
+    return out, changed
+
+
+def _load_config() -> Dict[str, Any]:
+    raw = _safe_read_json(CONFIG_PATH)
+    cfg, changed = _normalize_config(raw)
+    if changed:
+        ok = _safe_write_json_atomic(CONFIG_PATH, cfg)
+        logger.info(f"Config normalized (changed=True) write_back={ok}")
+    return cfg
+
+
+def _save_config_patch(patch: Dict[str, Any]) -> Tuple[bool, str]:
+    if not isinstance(patch, dict):
+        return False, "patch_not_object"
+    cur = _load_config()
+    merged = _deep_merge(cur, patch)
+    merged, _ = _normalize_config(merged)
+    ok = _safe_write_json_atomic(CONFIG_PATH, merged)
+    return ok, ("ok" if ok else "write_failed")
+
+
+# -----------------------------
+# MT5 helpers
+# -----------------------------
 def _ensure_mt5() -> Tuple[bool, str]:
     try:
         if mt5.terminal_info() is not None:
@@ -87,11 +277,9 @@ def _get_tick(symbol: str) -> Dict[str, Any]:
     ok, msg = _ensure_mt5()
     if not ok:
         return {"ok": False, "error": msg, "last_error": str(mt5.last_error())}
-
     t = mt5.symbol_info_tick(symbol)
     if t is None:
         return {"ok": False, "error": f"tick_none for {symbol}", "last_error": str(mt5.last_error())}
-
     return {
         "ok": True,
         "symbol": symbol,
@@ -144,7 +332,6 @@ def _mt5_snapshot(symbol: str) -> Dict[str, Any]:
                     "profit": float(getattr(p, "profit", 0.0)),
                 }
             )
-
     return snap
 
 
@@ -152,7 +339,6 @@ def _build_dry_run_order(symbol: str, direction: str) -> Dict[str, Any]:
     tick = _get_tick(symbol)
     if not tick.get("ok"):
         return {"ok": False, "error": tick.get("error"), "tick": tick}
-
     entry = tick["ask"] if direction == "BUY" else tick["bid"]
     return {
         "ok": True,
@@ -164,184 +350,80 @@ def _build_dry_run_order(symbol: str, direction: str) -> Dict[str, Any]:
     }
 
 
-def _is_blank_dict(x: Any) -> bool:
-    return isinstance(x, dict) and len(x) == 0
-
-
-def _normalize_config(cfg: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
-    """
-    Replace None/invalid values with defaults (commissioning safe).
-    Returns (normalized_cfg, changed_flag).
-    """
-    changed = False
-    out = dict(cfg) if isinstance(cfg, dict) else {}
-
-    def set_if_none_or_missing(key: str, default: Any) -> None:
-        nonlocal changed, out
-        if key not in out or out.get(key) is None:
-            out[key] = default
-            changed = True
-
-    def ensure_dict(key: str, default: Dict[str, Any]) -> None:
-        nonlocal changed, out
-        v = out.get(key)
-        if v is None or not isinstance(v, dict) or _is_blank_dict(v):
-            out[key] = default
-            changed = True
-
-    def ensure_number(key: str, default: float) -> None:
-        nonlocal changed, out
-        v = out.get(key)
-        if v is None:
-            out[key] = default
-            changed = True
-            return
-        try:
-            # Accept int/float/str numeric
-            out[key] = float(v)
-        except Exception:
-            out[key] = default
-            changed = True
-
-    def ensure_int(key: str, default: int) -> None:
-        nonlocal changed, out
-        v = out.get(key)
-        if v is None:
-            out[key] = default
-            changed = True
-            return
-        try:
-            out[key] = int(float(v))
-        except Exception:
-            out[key] = default
-            changed = True
-
-    # Top-level defaults
-    set_if_none_or_missing("symbol", "GOLD")
-    set_if_none_or_missing("enable_execution", False)
-    ensure_int("confidence_threshold", 75)
-    ensure_number("min_score", 7.0)
-    ensure_number("min_rr", 2.0)
-    ensure_number("lot", 0.01)
-
-    # Nested defaults (critical: prevent None flowing into engine)
-    ensure_dict("supertrend", {"period": 21, "multiplier": 4.0})
-    if isinstance(out.get("supertrend"), dict):
-        st = out["supertrend"]
-        if st.get("period") is None:
-            st["period"] = 21
-            changed = True
-        if st.get("multiplier") is None:
-            st["multiplier"] = 4.0
-            changed = True
-
-    ensure_dict("structure_sensitivity", {"htf": 4, "mtf": 3, "ltf": 1})
-    ensure_dict("timeframes", {"htf": "H1", "mtf": "M30", "ltf": "M5"})
-    ensure_dict("risk", {"atr_period": 14, "atr_sl_mult": 1.8})
-
-    # Optional section
-    if out.get("breakout_proximity") is None:
-        out["breakout_proximity"] = {}
-        changed = True
-
-    # AI defaults (status only)
-    ensure_dict("ai", {"enabled": False, "provider": "openai", "api_key_env": "OPENAI_API_KEY", "model": ""})
-    ai = out.get("ai", {})
-    if isinstance(ai, dict):
-        if ai.get("enabled") is None:
-            ai["enabled"] = False
-            changed = True
-        if not (ai.get("provider") or "").strip():
-            ai["provider"] = "openai"
-            changed = True
-        if not (ai.get("api_key_env") or "").strip():
-            ai["api_key_env"] = "OPENAI_API_KEY"
-            changed = True
-        if ai.get("model") is None:
-            ai["model"] = ""
-            changed = True
-        out["ai"] = ai
-
-    return out, changed
-
-
+# -----------------------------
+# Modes (new names + legacy compat)
+# -----------------------------
 MODE_PRESETS: Dict[str, Dict[str, Any]] = {
-    "A": {
+    # เข้มงวด/เทรดน้อย/คุณภาพสูง
+    "precision": {
+        "mode": "precision",
         "confidence_threshold": 85,
         "min_score": 8.5,
         "min_rr": 2.5,
-        "structure_sensitivity": {"htf": 4, "mtf": 3, "ltf": 1},
-        "timeframes": {"htf": "H1", "mtf": "M30", "ltf": "M5"},
-        "supertrend": {"period": 21, "multiplier": 4.0},
-        "breakout_proximity": {"threshold": 2.0, "min_score": 60},
+        "breakout": {
+            "confirm_buffer_atr": 0.10,
+            "require_retest": True,
+            "retest_band_atr": 0.20,
+            "proximity_threshold_atr": 0.70,
+            "proximity_min_score": 60,
+        },
     },
-    "B": {
+    # สมดุล (default)
+    "balanced": {
+        "mode": "balanced",
         "confidence_threshold": 75,
         "min_score": 7.0,
         "min_rr": 2.0,
-        "structure_sensitivity": {"htf": 4, "mtf": 3, "ltf": 1},
-        "timeframes": {"htf": "H1", "mtf": "M30", "ltf": "M5"},
-        "supertrend": {"period": 21, "multiplier": 4.0},
-        "breakout_proximity": {"threshold": 2.0, "min_score": 50},
+        "breakout": {
+            "confirm_buffer_atr": 0.05,
+            "require_retest": True,
+            "retest_band_atr": 0.25,
+            "proximity_threshold_atr": 0.80,
+            "proximity_min_score": 50,
+        },
     },
-    "C": {
+    # ถี่ขึ้น/ยอมให้สัญญาณมากขึ้น (ยังคง Option C)
+    "frequent": {
+        "mode": "frequent",
         "confidence_threshold": 65,
         "min_score": 6.0,
         "min_rr": 1.7,
-        "structure_sensitivity": {"htf": 4, "mtf": 3, "ltf": 1},
-        "timeframes": {"htf": "H1", "mtf": "M30", "ltf": "M5"},
-        "supertrend": {"period": 21, "multiplier": 4.0},
-        "breakout_proximity": {"threshold": 2.5, "min_score": 40},
+        "breakout": {
+            "confirm_buffer_atr": 0.00,
+            "require_retest": True,
+            "retest_band_atr": 0.30,
+            "proximity_threshold_atr": 1.00,
+            "proximity_min_score": 40,
+        },
     },
 }
 
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
-DASHBOARD_HTML = os.path.join(BASE_DIR, "dashboard.html")
-
-app = Flask(__name__)
-mt5_lock = threading.Lock()
-
-engine = TradingEngine(config_path=CONFIG_PATH)
-tg = TelegramNotifier(config_path=CONFIG_PATH)
+LEGACY_MODE_MAP = {"A": "precision", "B": "balanced", "C": "frequent"}
 
 
-def _load_config() -> Dict[str, Any]:
-    raw = _safe_read_json(CONFIG_PATH)
-    cfg, changed = _normalize_config(raw)
-
-    if changed:
-        ok = _safe_write_json(CONFIG_PATH, cfg)
-        logger.info(f"Config normalized (changed=True) write_back={ok}")
-
-    return cfg
-
-
-def _save_config_patch(patch: Dict[str, Any]) -> Tuple[bool, str]:
-    if not isinstance(patch, dict):
-        return False, "patch_not_object"
-    cur = _load_config()
-    merged = _deep_merge(cur, patch)
-    merged, changed = _normalize_config(merged)
-    ok = _safe_write_json(CONFIG_PATH, merged)
-    return ok, ("ok" if ok else "write_failed")
+def _resolve_mode_id(mode_id: str) -> str:
+    m = (mode_id or "").strip()
+    if not m:
+        return "balanced"
+    u = m.upper()
+    if u in LEGACY_MODE_MAP:
+        return LEGACY_MODE_MAP[u]
+    return m.lower()
 
 
+# -----------------------------
+# Status helpers
+# -----------------------------
 def _ai_status(cfg: Dict[str, Any]) -> Dict[str, Any]:
     ai = cfg.get("ai") if isinstance(cfg, dict) else {}
     if not isinstance(ai, dict):
         ai = {}
-
     provider = str(ai.get("provider") or "openai").strip().lower()
     enabled = bool(ai.get("enabled", False))
-
     api_key_env = str(ai.get("api_key_env") or ("OPENAI_API_KEY" if provider == "openai" else "AI_API_KEY")).strip()
     model = str(ai.get("model") or "").strip()
-
     key_present = bool(os.getenv(api_key_env)) if api_key_env else False
     ok = bool(enabled and key_present and bool(model))
-
     return {
         "ok": ok,
         "enabled": enabled,
@@ -368,6 +450,9 @@ def _telegram_status() -> Dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
+# -----------------------------
+# Routes
+# -----------------------------
 @app.get("/")
 def root():
     if os.path.exists(DASHBOARD_HTML):
@@ -398,15 +483,28 @@ def api_post_config():
 
 @app.post("/api/mode/<mode_id>")
 def api_apply_mode(mode_id: str):
-    mode_id = (mode_id or "").strip().upper()
-    preset = MODE_PRESETS.get(mode_id)
+    resolved = _resolve_mode_id(mode_id)
+    preset = MODE_PRESETS.get(resolved)
     if not preset:
         return jsonify({"ok": False, "error": f"unknown_mode: {mode_id}"}), 404
-
     ok, msg = _save_config_patch(preset)
     if not ok:
         return jsonify({"ok": False, "error": msg}), 400
-    return jsonify({"ok": True, "mode": mode_id})
+    return jsonify({"ok": True, "mode": resolved})
+
+
+@app.post("/api/mode")
+def api_apply_mode_json():
+    payload = request.get_json(silent=True) or {}
+    mode_id = str(payload.get("mode") or "")
+    resolved = _resolve_mode_id(mode_id)
+    preset = MODE_PRESETS.get(resolved)
+    if not preset:
+        return jsonify({"ok": False, "error": f"unknown_mode: {mode_id}"}), 404
+    ok, msg = _save_config_patch(preset)
+    if not ok:
+        return jsonify({"ok": False, "error": msg}), 400
+    return jsonify({"ok": True, "mode": resolved})
 
 
 @app.get("/api/ai_status")
@@ -424,7 +522,6 @@ def api_telegram_status():
 def api_status():
     cfg = _load_config()
     symbol = str(cfg.get("symbol", "GOLD"))
-
     with mt5_lock:
         mt5snap = _mt5_snapshot(symbol)
         price = _get_tick(symbol)
@@ -433,6 +530,7 @@ def api_status():
         {
             "ts": int(time.time()),
             "config": {
+                "mode": cfg.get("mode"),
                 "symbol": symbol,
                 "enable_execution": bool(cfg.get("enable_execution", False)),
                 "confidence_threshold": int(cfg.get("confidence_threshold", 75)),
@@ -440,19 +538,15 @@ def api_status():
                 "min_rr": float(cfg.get("min_rr", 2.0)),
                 "lot": float(cfg.get("lot", 0.01)),
                 "timeframes": cfg.get("timeframes", {}),
-                "structure_sensitivity": cfg.get("structure_sensitivity", {}),
                 "supertrend": cfg.get("supertrend", {}),
                 "risk": cfg.get("risk", {}),
-                "breakout_proximity": cfg.get("breakout_proximity", {}),
+                "breakout": cfg.get("breakout", {}),
             },
             "mt5": mt5snap,
             "price": price,
             "ai": _ai_status(cfg),
             "telegram": _telegram_status(),
-            "log_file": {
-                "exists": os.path.exists(os.path.join(BASE_DIR, "him_system.log")),
-                "path": os.path.join(BASE_DIR, "him_system.log"),
-            },
+            "log_file": {"exists": os.path.exists(os.path.join(BASE_DIR, "him_system.log")), "path": os.path.join(BASE_DIR, "him_system.log")},
         }
     )
 
@@ -461,7 +555,6 @@ def api_status():
 def api_signal_preview():
     cfg = _load_config()
     symbol = str(cfg.get("symbol", "GOLD"))
-
     with mt5_lock:
         try:
             pkg = engine.generate_signal_package()
@@ -469,9 +562,8 @@ def api_signal_preview():
             logger.error(f"CRITICAL: engine.generate_signal_package failed: {e}")
             return jsonify({"ok": False, "error": f"engine_failed: {e}"}), 500
 
-        direction = str((pkg or {}).get("direction", "NONE")).upper()
-        dry = _build_dry_run_order(symbol=symbol, direction=direction) if direction in ("BUY", "SELL") else {"ok": True, "note": "direction=NONE"}
-
+    direction = str((pkg or {}).get("direction", "NONE")).upper()
+    dry = _build_dry_run_order(symbol=symbol, direction=direction) if direction in ("BUY", "SELL") else {"ok": True, "note": "direction=NONE"}
     return jsonify({"ok": True, "symbol": symbol, "package": pkg, "dry_run_order": dry})
 
 
@@ -479,7 +571,6 @@ def api_signal_preview():
 def api_performance():
     cfg = _load_config()
     symbol = str(cfg.get("symbol", "GOLD"))
-
     with mt5_lock:
         try:
             pt = PerformanceTracker(stats_file="performance_stats.json", symbol=symbol, lookback_days=365)
@@ -489,7 +580,6 @@ def api_performance():
             trades_raw = pt.stats.get("trades", []) if isinstance(pt.stats, dict) else []
             trades = [t for t in trades_raw if isinstance(t, dict) and t.get("deal_ticket") is not None and t.get("time_iso")]
             trades = sorted(trades, key=lambda x: int(x.get("time", 0)), reverse=True)[:20]
-
         except Exception as e:
             logger.error(f"CRITICAL: performance failed: {e}")
             return jsonify({"ok": False, "error": str(e)}), 500
@@ -518,13 +608,9 @@ def api_performance():
 @app.post("/api/telegram_test")
 def api_telegram_test():
     payload = request.get_json(silent=True) or {}
-
-    # Commissioning default: plain text only
     text = str(payload.get("text") or "HIM Telegram Test: OK\n(plain text)")
     event_type = str(payload.get("event_type") or "signal")
-
     ok, status, body = tg.send_text_debug(text=text, event_type=event_type, parse_mode=None)
-
     return jsonify(
         {
             "ok": bool(ok),
