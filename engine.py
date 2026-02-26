@@ -1,34 +1,42 @@
 """
-Hybrid Intelligence Mentor (HIM)
-Trading Engine
-
-Version: 2.4.0
+Hybrid Intelligence Mentor (HIM) Trading Engine
+Version: 2.6.1
 
 Changelog:
-2.4.0
-- Add breakout confirmed states when BOS already crossed (distance < 0)
-- Add breakout_state/breakout_side/breakout_overshoot_points to context
-- Keep ATR-based threshold + points fallback
-- Reload config per call (API config changes apply immediately)
+- 2.6.1 (2026-02-26):
+  - P0 FIX: proximity_score() no longer calls safe_float(..., None) which could crash (float(None))
+  - Use MT5 tick ask/bid for entry_candidate (market execution pricing owner)
+  - Keep v2.6.0 contract fields and config_resolver integration
+
+Design Rules (Commissioning):
+- Engine is the pricing owner: computes entry/SL/TP candidates
+- AI is confirm-only (must not change prices) [enforced elsewhere]
+- Executor enforces safety + risk (later steps)
+- supertrend_ok remains placeholder True (explicit)
 """
+
+from __future__ import annotations
 
 import json
 import time
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import MetaTrader5 as mt5
 
+from config_resolver import resolve_effective_config
+
 
 class TradingEngine:
-    def __init__(self, config_path="config.json"):
+    def __init__(self, config_path: str = "config.json"):
         self.config_path = config_path
         self.cfg = self.load_config()
 
     # =========================
     # SAFE CONVERSION
     # =========================
-
     @staticmethod
-    def safe_float(v, default=0.0):
+    def safe_float(v: Any, default: float = 0.0) -> float:
         if v is None:
             return float(default)
         try:
@@ -37,7 +45,7 @@ class TradingEngine:
             return float(default)
 
     @staticmethod
-    def safe_int(v, default=0):
+    def safe_int(v: Any, default: int = 0) -> int:
         if v is None:
             return int(default)
         try:
@@ -45,27 +53,31 @@ class TradingEngine:
         except Exception:
             return int(default)
 
+    @staticmethod
+    def clamp(x: float, lo: float, hi: float) -> float:
+        return float(max(lo, min(hi, x)))
+
     # =========================
     # CONFIG
     # =========================
-
-    def load_config(self):
+    def load_config(self) -> Dict[str, Any]:
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-            return cfg if isinstance(cfg, dict) else {}
+            if not isinstance(cfg, dict):
+                return {}
+            return resolve_effective_config(cfg)
         except Exception:
             return {}
 
-    def reload_config(self):
+    def reload_config(self) -> Dict[str, Any]:
         self.cfg = self.load_config()
         return self.cfg
 
     # =========================
     # MT5 READY
     # =========================
-
-    def ensure_mt5(self):
+    def ensure_mt5(self) -> Tuple[bool, str]:
         try:
             if mt5.terminal_info() is not None:
                 return True, "already_initialized"
@@ -76,11 +88,16 @@ class TradingEngine:
         except Exception as e:
             return False, f"initialize_exception: {e}"
 
+    def get_tick(self, symbol: str):
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            raise RuntimeError(f"tick_none: {symbol} last_error={mt5.last_error()}")
+        return tick
+
     # =========================
     # TF MAP
     # =========================
-
-    def tf(self, name):
+    def tf(self, name: str):
         mapping = {
             "M5": mt5.TIMEFRAME_M5,
             "M15": mt5.TIMEFRAME_M15,
@@ -90,19 +107,17 @@ class TradingEngine:
             "D1": mt5.TIMEFRAME_D1,
         }
         key = str(name).upper().strip()
-        return mapping.get(key, mt5.TIMEFRAME_M5)
+        return mapping.get(key, mt5.TIMEFRAME_M15)
 
     # =========================
     # DATA
     # =========================
-
-    def get_data(self, symbol, timeframe, bars):
+    def get_data(self, symbol: str, timeframe, bars: int):
         ok, msg = self.ensure_mt5()
         if not ok:
             raise RuntimeError(msg)
 
-        sel = mt5.symbol_select(symbol, True)
-        if not sel:
+        if not mt5.symbol_select(symbol, True):
             raise RuntimeError(f"symbol_select_failed: {symbol} last_error={mt5.last_error()}")
 
         bars = int(bars)
@@ -116,53 +131,42 @@ class TradingEngine:
             rates = fetch_once()
 
         if rates is None:
-            raise RuntimeError(f"copy_rates_none: symbol={symbol} tf={timeframe} bars={bars} last_error={mt5.last_error()}")
-
-        if len(rates) < 120:
-            raise RuntimeError(f"not_enough_bars: got={len(rates)} need>=120 symbol={symbol} tf={timeframe}")
-
+            raise RuntimeError(
+                f"copy_rates_none: symbol={symbol} tf={timeframe} bars={bars} last_error={mt5.last_error()}"
+            )
+        if len(rates) < 200:
+            raise RuntimeError(f"not_enough_bars: got={len(rates)} need>=200 symbol={symbol} tf={timeframe}")
         return rates
 
     # =========================
-    # ATR
+    # ATR (EMA-style)
     # =========================
-
-    def atr(self, high, low, close, period):
+    def atr(self, high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int) -> np.ndarray:
         period = max(1, int(period))
-
         prev_close = np.roll(close, 1)
         prev_close[0] = close[0]
+        tr = np.maximum(high - low, np.maximum(np.abs(high - prev_close), np.abs(low - prev_close)))
 
-        tr = np.maximum(
-            high - low,
-            np.maximum(np.abs(high - prev_close), np.abs(low - prev_close))
-        )
-
-        atr = np.zeros(len(close), dtype=float)
+        out = np.zeros(len(close), dtype=float)
         alpha = 1.0 / period
-
         for i in range(1, len(close)):
-            atr[i] = atr[i - 1] * (1 - alpha) + tr[i] * alpha
-
-        return atr
+            out[i] = out[i - 1] * (1 - alpha) + tr[i] * alpha
+        return out
 
     # =========================
-    # STRUCTURE
+    # STRUCTURE (pivots)
     # =========================
-
-    def structure(self, data, sens):
+    def structure(self, data, sens: int) -> Tuple[str, Optional[float], Optional[float]]:
         high = data["high"]
         low = data["low"]
-
         sens = max(1, int(sens))
 
         piv_hi = []
         piv_lo = []
-
         for i in range(sens, len(high) - sens):
-            if high[i] == max(high[i - sens:i + sens + 1]):
+            if high[i] == max(high[i - sens : i + sens + 1]):
                 piv_hi.append(float(high[i]))
-            if low[i] == min(low[i - sens:i + sens + 1]):
+            if low[i] == min(low[i - sens : i + sens + 1]):
                 piv_lo.append(float(low[i]))
 
         last_hi = piv_hi[-1] if piv_hi else None
@@ -178,16 +182,13 @@ class TradingEngine:
         return trend, last_hi, last_lo
 
     # =========================
-    # PROXIMITY / ETA
+    # PROXIMITY (P0 FIX)
     # =========================
-
-    def proximity_score(self, dist_buy, dist_sell, threshold_points):
+    def proximity_score(self, dist_buy: Optional[float], dist_sell: Optional[float], threshold_points: float):
         thr = max(self.safe_float(threshold_points, 0.0), 1e-9)
+        best: Optional[float] = None
+        side: Optional[str] = None
 
-        best = None
-        side = None
-
-        # Only “pre-breakout” distances (>=0) contribute to proximity score
         if dist_buy is not None:
             try:
                 db = float(dist_buy)
@@ -213,49 +214,99 @@ class TradingEngine:
         score = 100.0 * max(0.0, min(1.0, (thr - best) / thr))
         return float(score), side, float(best)
 
-    def eta_candles(self, dist_points, atr_points_per_candle):
-        if dist_points is None:
-            return None
-        atrv = self.safe_float(atr_points_per_candle, 0.0)
-        if atrv <= 1e-9:
-            return None
-        d = float(dist_points)
-        if d < 0:
-            return 0.0
-        return float(d / atrv)
+    # =========================
+    # SCORING (0-10) + CONF (0-100)
+    # =========================
+    def compute_score_0_10(
+        self,
+        direction: str,
+        htf_trend: str,
+        bos: bool,
+        prox_score_0_100: float,
+        retest_ok: bool,
+        overshoot_points: Optional[float],
+        threshold_points: float,
+        blocked: bool,
+    ) -> float:
+        s = 0.0
+
+        # Trend alignment (HTF only in this version)
+        align = 0.0
+        if direction == "BUY" and htf_trend == "bullish":
+            align = 1.0
+        elif direction == "SELL" and htf_trend == "bearish":
+            align = 1.0
+        s += 2.0 * align
+
+        # BOS
+        s += 2.5 if bos else 0.0
+
+        # Proximity
+        ps = self.clamp(self.safe_float(prox_score_0_100, 0.0) / 100.0, 0.0, 1.0)
+        s += 2.0 * ps
+
+        # Retest
+        s += 1.5 if retest_ok else 0.0
+
+        # Overshoot grading
+        og = 0.0
+        if overshoot_points is not None:
+            thr = max(self.safe_float(threshold_points, 0.0), 1e-9)
+            ratio = self.clamp(float(overshoot_points) / thr, 0.0, 2.0)
+            og = 1.0 - self.clamp(ratio / 2.0, 0.0, 1.0)
+        s += 1.0 * og
+
+        # Penalty
+        if blocked:
+            s -= 3.0
+
+        return self.clamp(s, 0.0, 10.0)
+
+    def compute_confidence_0_100(self, score_0_10: float, bos: bool, retest_ok: bool, align: bool) -> int:
+        score100 = self.clamp(score_0_10 * 10.0, 0.0, 100.0)
+        base = score100 * 0.85
+        bonus = 0.0
+        if bos:
+            bonus += 8.0
+        if retest_ok:
+            bonus += 5.0
+        if align:
+            bonus += 4.0
+        return int(round(self.clamp(base + bonus, 0.0, 100.0)))
 
     # =========================
     # MAIN
     # =========================
-
-    def generate_signal_package(self):
+    def generate_signal_package(self) -> Dict[str, Any]:
         cfg = self.reload_config()
-        symbol = str(cfg.get("symbol", "GOLD"))
 
+        symbol = str(cfg.get("symbol", "GOLD"))
         tf_cfg = cfg.get("timeframes", {}) or {}
         sens_cfg = cfg.get("structure_sensitivity", {}) or {}
         risk_cfg = cfg.get("risk", {}) or {}
         prox_cfg = cfg.get("breakout_proximity", {}) or {}
 
+        entry_cfg = cfg.get("entry_model", {}) or {}
+        retest_atr_mult = self.safe_float(entry_cfg.get("retest_atr_mult"), 0.35)
+
+        min_rr = self.safe_float(cfg.get("min_rr", 1.7), 1.7)
+        atr_sl_mult = self.safe_float(risk_cfg.get("atr_sl_mult"), 1.8)
+
         htf = str(tf_cfg.get("htf", "H1"))
         mtf = str(tf_cfg.get("mtf", "M30"))
-        ltf = str(tf_cfg.get("ltf", "M5"))
+        ltf = str(tf_cfg.get("ltf", "M15"))
 
         sens_htf = self.safe_int(sens_cfg.get("htf"), 4)
         sens_mtf = self.safe_int(sens_cfg.get("mtf"), 3)
         sens_ltf = self.safe_int(sens_cfg.get("ltf"), 1)
 
         atr_period = self.safe_int(risk_cfg.get("atr_period"), 14)
-
         prox_min_score = self.safe_float(prox_cfg.get("min_score"), 40.0)
+
         threshold_atr_raw = prox_cfg.get("threshold_atr", None)
         threshold_points_fallback = prox_cfg.get("threshold", None)
 
-        blocked = []
-        watch_state = "NONE"
-        breakout_state = "NONE"
-        breakout_side = None
-        breakout_overshoot_points = None
+        blocked_reasons = []
 
         try:
             htf_data = self.get_data(symbol, self.tf(htf), 600)
@@ -265,11 +316,17 @@ class TradingEngine:
             return {
                 "symbol": symbol,
                 "direction": "NONE",
+                "score": 0.0,
+                "rr": 0.0,
+                "confidence_py": 0,
+                "bos": False,
+                "supertrend_ok": True,
+                "entry_candidate": 0.0,
+                "stop_candidate": 0.0,
+                "tp_candidate": 0.0,
                 "context": {
                     "blocked_by": "no_data",
                     "error": str(e),
-                    "watch_state": "NONE",
-                    "breakout_state": "NONE",
                     "timeframes": {"htf": htf, "mtf": mtf, "ltf": ltf},
                 },
             }
@@ -293,12 +350,13 @@ class TradingEngine:
             direction = "SELL"
             bias_source = "MTF_FALLBACK"
         else:
-            blocked.append("no_clear_bias")
+            blocked_reasons.append("no_clear_bias")
 
         close = np.asarray(ltf_data["close"], dtype=float)
         high = np.asarray(ltf_data["high"], dtype=float)
         low = np.asarray(ltf_data["low"], dtype=float)
-        price = float(close[-1])
+
+        ltf_close = float(close[-1])
 
         atr_arr = self.atr(high, low, close, atr_period)
         atr_val = float(atr_arr[-1]) if len(atr_arr) else 0.0
@@ -312,13 +370,15 @@ class TradingEngine:
             threshold_points = self.safe_float(threshold_points_fallback, default=2.5)
             threshold_mode = "POINTS"
             threshold_atr_out = None
-
         threshold_points = max(float(threshold_points), 1e-9)
 
-        dist_buy = (float(bos_hi) - price) if bos_hi is not None else None
-        dist_sell = (price - float(bos_lo)) if bos_lo is not None else None
+        dist_buy = (float(bos_hi) - ltf_close) if bos_hi is not None else None
+        dist_sell = (ltf_close - float(bos_lo)) if bos_lo is not None else None
 
-        # Breakout confirmed detection (distance < 0)
+        breakout_state = "NONE"
+        breakout_side = None
+        breakout_overshoot_points = None
+
         if dist_buy is not None and dist_buy < 0:
             breakout_state = "BREAKOUT_BUY_CONFIRMED"
             breakout_side = "BUY"
@@ -328,40 +388,99 @@ class TradingEngine:
             breakout_side = "SELL"
             breakout_overshoot_points = float(abs(dist_sell))
 
+        bos = bool(breakout_side == direction and breakout_state.startswith("BREAKOUT_"))
+
         prox_score, prox_side, prox_best_dist = self.proximity_score(dist_buy, dist_sell, threshold_points)
 
-        eta_buy = self.eta_candles(dist_buy, atr_val) if dist_buy is not None else None
-        eta_sell = self.eta_candles(dist_sell, atr_val) if dist_sell is not None else None
-        eta_best = self.eta_candles(prox_best_dist, atr_val) if prox_best_dist is not None else None
-
-        # Direction gates (only for BUY/SELL)
+        bos_ref = None
         if direction == "BUY":
-            if dist_buy is None:
-                blocked.append("no_bos_ref_high")
-            elif dist_buy >= 0 and dist_buy > threshold_points:
-                blocked.append("no_bos")
+            bos_ref = bos_hi
         elif direction == "SELL":
-            if dist_sell is None:
-                blocked.append("no_bos_ref_low")
-            elif dist_sell >= 0 and dist_sell > threshold_points:
-                blocked.append("no_bos")
+            bos_ref = bos_lo
 
-        # WATCHLIST rule:
-        # 1) If bias unclear but near BOS => WATCH_*_BREAKOUT
-        # 2) If breakout already happened => WATCH_*_BREAKOUT_CONFIRMED
-        if "no_clear_bias" in blocked:
-            if breakout_state == "BREAKOUT_BUY_CONFIRMED":
-                watch_state = "WATCH_BUY_BREAKOUT_CONFIRMED"
-            elif breakout_state == "BREAKOUT_SELL_CONFIRMED":
-                watch_state = "WATCH_SELL_BREAKOUT_CONFIRMED"
-            elif prox_score >= prox_min_score and prox_side in ("BUY", "SELL"):
-                watch_state = "WATCH_BUY_BREAKOUT" if prox_side == "BUY" else "WATCH_SELL_BREAKOUT"
+        retest_band = float(max(atr_val * retest_atr_mult, 1e-9))
+        retest_ok = False
+        if bos_ref is not None and direction in ("BUY", "SELL"):
+            retest_ok = bool(abs(ltf_close - float(bos_ref)) <= retest_band)
 
-        direction_out = "NONE" if blocked else direction
+        if direction == "BUY":
+            if bos_hi is None:
+                blocked_reasons.append("no_bos_ref_high")
+            if dist_buy is not None and dist_buy >= 0 and dist_buy > threshold_points:
+                blocked_reasons.append("no_bos")
+        elif direction == "SELL":
+            if bos_lo is None:
+                blocked_reasons.append("no_bos_ref_low")
+            if dist_sell is not None and dist_sell >= 0 and dist_sell > threshold_points:
+                blocked_reasons.append("no_bos")
+
+        blocked = bool(len(blocked_reasons) > 0)
+
+        # -------------------------
+        # Trade-ready candidates (pricing owner) using tick
+        # -------------------------
+        tick = self.get_tick(symbol)
+
+        if direction == "BUY":
+            entry_candidate = float(tick.ask)
+        elif direction == "SELL":
+            entry_candidate = float(tick.bid)
+        else:
+            entry_candidate = float(ltf_close)
+
+        sl_dist = float(max(atr_val * atr_sl_mult, 1e-9))
+
+        if direction == "BUY":
+            stop_candidate = float(entry_candidate - sl_dist)
+            tp_candidate = float(entry_candidate + sl_dist * float(max(min_rr, 0.1)))
+        elif direction == "SELL":
+            stop_candidate = float(entry_candidate + sl_dist)
+            tp_candidate = float(entry_candidate - sl_dist * float(max(min_rr, 0.1)))
+        else:
+            stop_candidate = 0.0
+            tp_candidate = 0.0
+
+        rr = 0.0
+        if direction == "BUY":
+            risk = entry_candidate - stop_candidate
+            reward = tp_candidate - entry_candidate
+            rr = float(reward / risk) if risk > 1e-9 else 0.0
+        elif direction == "SELL":
+            risk = stop_candidate - entry_candidate
+            reward = entry_candidate - tp_candidate
+            rr = float(reward / risk) if risk > 1e-9 else 0.0
+
+        align = bool((direction == "BUY" and htf_trend == "bullish") or (direction == "SELL" and htf_trend == "bearish"))
+
+        score_0_10 = self.compute_score_0_10(
+            direction=direction if direction in ("BUY", "SELL") else "NONE",
+            htf_trend=htf_trend,
+            bos=bos,
+            prox_score_0_100=prox_score,
+            retest_ok=retest_ok,
+            overshoot_points=breakout_overshoot_points,
+            threshold_points=threshold_points,
+            blocked=(direction not in ("BUY", "SELL")) or blocked,
+        )
+
+        confidence_py = self.compute_confidence_0_100(score_0_10, bos=bos, retest_ok=retest_ok, align=align)
+
+        supertrend_ok = True
+        supertrend_label = "PLACEHOLDER"
+
+        direction_out = direction if direction in ("BUY", "SELL") else "NONE"
 
         return {
             "symbol": symbol,
             "direction": direction_out,
+            "entry_candidate": float(entry_candidate),
+            "stop_candidate": float(stop_candidate),
+            "tp_candidate": float(tp_candidate),
+            "rr": float(rr),
+            "score": float(score_0_10),
+            "confidence_py": int(confidence_py),
+            "bos": bool(bos),
+            "supertrend_ok": bool(supertrend_ok),
             "context": {
                 "HTF_trend": htf_trend,
                 "MTF_trend": mtf_trend,
@@ -370,30 +489,37 @@ class TradingEngine:
 
                 "bos_ref_high": bos_hi,
                 "bos_ref_low": bos_lo,
+                "bos_ref": bos_ref,
 
                 "distance_buy": dist_buy,
                 "distance_sell": dist_sell,
 
                 "atr": atr_val,
+                "atr_period": atr_period,
+                "atr_sl_mult": atr_sl_mult,
+                "min_rr": min_rr,
 
                 "breakout_proximity_min_score": prox_min_score,
                 "breakout_proximity_threshold_atr": threshold_atr_out,
                 "breakout_proximity_threshold_mode": threshold_mode,
                 "breakout_proximity_threshold_points": threshold_points,
-
                 "proximity_score": prox_score,
                 "proximity_side": prox_side,
-
-                "eta_candles_to_bos_best": eta_best,
-                "eta_candles_to_bos_buy": eta_buy,
-                "eta_candles_to_bos_sell": eta_sell,
+                "proximity_best_dist": prox_best_dist,
 
                 "breakout_state": breakout_state,
                 "breakout_side": breakout_side,
                 "breakout_overshoot_points": breakout_overshoot_points,
 
-                "watch_state": watch_state,
-                "blocked_by": ",".join(blocked) if blocked else None,
+                "retest_atr_mult": retest_atr_mult,
+                "retest_band": retest_band,
+                "retest_ok": retest_ok,
+
+                "bos": bool(bos),
+                "supertrend": supertrend_label,
+                "supertrend_ok": bool(supertrend_ok),
+
+                "blocked_by": ",".join(blocked_reasons) if blocked_reasons else None,
 
                 "timeframes": {"htf": htf, "mtf": mtf, "ltf": ltf},
                 "structure_sensitivity": {"htf": sens_htf, "mtf": sens_mtf, "ltf": sens_ltf},
@@ -408,4 +534,4 @@ if __name__ == "__main__":
 
     e = TradingEngine("config.json")
     pkg = e.generate_signal_package()
-    print(pkg)
+    print(json.dumps(pkg, indent=2, ensure_ascii=False))

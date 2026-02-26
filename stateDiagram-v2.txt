@@ -1,0 +1,274 @@
+stateDiagram-v2
+    [*] --> Repo
+
+    %% =========================
+    %% REPO OVERVIEW (Hybrid Intelligence Mentor - HIM)
+    %% =========================
+    state "Repo: Hybrid_Intelligence_Mentor" as Repo {
+
+        %% -------------------------
+        %% CONFIG / PROFILES
+        %% -------------------------
+        state "Config & Profiles" as CFG {
+            state "config.json" as CONFIG_JSON : 🔴 Issues
+            note right of CONFIG_JSON
+              Runtime config + profiles A/B/C
+              Issue: profiles/mode not merged in mentor_executor (effective config mismatch)
+              Key params: symbol=GOLD, enable_execution, min_rr, min_score, confidence_threshold,
+              risk.atr_period, risk.atr_sl_mult, supertrend.* (planned), ai.enabled (not respected)
+            end note
+
+            state "config.py" as CONFIG_PY : 🟡 In Progress
+            note right of CONFIG_PY
+              Python-side config utilities / defaults (needs alignment with config.json)
+              Goal: single 'effective_cfg' = merge(root, profiles[mode])
+            end note
+
+            state "strategy_profiles.py" as STRAT_PROFILES : 🟡 In Progress
+            note right of STRAT_PROFILES
+              Profile definitions / presets
+              Dependency: must match config.json schema + loader behavior
+            end note
+        }
+
+        %% -------------------------
+        %% CORE ANALYSIS ENGINE
+        %% -------------------------
+        state "Core Analysis (Market Intelligence)" as CORE {
+            state "engine.py" as ENGINE : 🔴 Issues
+            note right of ENGINE
+              Main: MTF structure + ATR + proximity + breakout state machine
+              Current outputs: symbol, direction, context(HTF/MTF/LTF trend, ATR, proximity_score,
+              breakout_state/side/overshoot, blocked_by, watch_state)
+              Missing contract fields: entry_candidate, stop_candidate, tp_candidate, rr,
+              score(0-100), confidence_py(0-100), bos(bool), supertrend_ok(bool)
+              Unit issue: variables named *_points but values are price-distance
+            end note
+
+            state "mt5_tester.py" as MT5_TESTER : ✅ Done
+            note right of MT5_TESTER
+              Smoke test MT5 connection, symbol selection, tick retrieval
+            end note
+        }
+
+        %% -------------------------
+        %% AI LAYER (CONFIRM-ONLY)
+        %% -------------------------
+        state "AI Layer (Final Confirmation)" as AI {
+            state "ai_mentor.py" as AI_MENTOR : 🔴 Issues
+            note right of AI_MENTOR
+              Intended: confirm-only (Option A), consumes signal_package candidates
+              Reads: entry_candidate, stop_candidate, tp_candidate, rr, score, bos, supertrend_ok
+              Issue: hardcoded gates (score>=7, rr>=2, conf>=75) not using effective config
+              Must: use cfg(min_score*10, min_rr, confidence_threshold) and not re-price
+            end note
+
+            state "ai_bridge_v1.py" as AI_BRIDGE : 🟡 In Progress
+            note right of AI_BRIDGE
+              Provider bridge (OpenAI/DeepSeek) + retries/timeout + fallback_to_technical
+              Must respect config.ai.enabled and schema validation
+            end note
+
+            state "ai_signal_tester.py" as AI_SIG_TEST : ✅ Done
+            note right of AI_SIG_TEST
+              Test harness for AI request/response and JSON shape validation
+            end note
+
+            state "ai_response_log.json" as AI_RESP_LOG : ✅ Done
+            note right of AI_RESP_LOG
+              Stores AI responses for audit/debug
+            end note
+        }
+
+        %% -------------------------
+        %% EXECUTION / STATE / SAFETY
+        %% -------------------------
+        state "Execution & State (Auto Trade)" as EXEC {
+            state "mentor_executor.py" as EXECUTOR : 🔴 Issues
+            note right of EXECUTOR
+              Orchestrator: load config, call engine, call AI approve, gate, (optionally) execute,
+              telegram notify, trade logging
+              Current: minimal _place_market_order uses sl/tp without digits normalize or stops_level/freeze_level validation,
+              deviation=30 fixed, lot from config (fixed), does not merge profiles/mode
+              Must: Option A price source = engine proposal, AI confirm-only,
+              implement risk 1% equity sizing + spread filter + stops validation
+            end note
+
+            state "trade_close_monitor.py" as CLOSE_MON : 🟡 In Progress
+            note right of CLOSE_MON
+              Monitor open trades, update close state, post-trade logging/performance
+              Needs robust state machine + reconciliation with MT5 positions/deals
+            end note
+
+            state "trade_close_state.json" as CLOSE_STATE : ✅ Done
+            note right of CLOSE_STATE
+              State persistence for close monitor
+            end note
+
+            state "trade_logger.py" as TLOG : 🟡 In Progress
+            note right of TLOG
+              Trade event logging (requests, responses, gates, errors)
+              Needs completeness: include effective_cfg snapshot, symbol specs, SL/TP distances
+            end note
+
+            state "trade_history.json" as TRADE_HISTORY : ✅ Done
+            note right of TRADE_HISTORY
+              Historical trade records for analytics/performance
+            end note
+        }
+
+        %% -------------------------
+        %% PERFORMANCE / ANALYTICS
+        %% -------------------------
+        state "Performance & Analytics" as PERF {
+            state "performance_tracker.py" as PERF_TRACK : 🟡 In Progress
+            note right of PERF_TRACK
+              Track winrate, expectancy, drawdown, R-multiples, commissioning metrics
+              Needs: consistent trade schema + closed-trade reconciliation
+            end note
+
+            state "performance_stats.json" as PERF_STATS : ✅ Done
+            note right of PERF_STATS
+              Aggregated stats output
+            end note
+        }
+
+        %% -------------------------
+        %% TELEGRAM / NOTIFICATION
+        %% -------------------------
+        state "Notification" as NOTIFY {
+            state "telegram_notifier.py" as TG : 🟡 In Progress
+            note right of TG
+              Send Telegram alerts: signal/trade/error
+              Needs: mentor explanation reasons 1..n and consistent formatting
+            end note
+        }
+
+        %% -------------------------
+        %% DASHBOARD / API
+        %% -------------------------
+        state "Dashboard & API" as UI {
+            state "dashboard.html" as DASH_HTML : ✅ Done
+            note right of DASH_HTML
+              Web dashboard UI (reads logs/stats)
+            end note
+
+            state "intelligent_dashboard.py" as DASH_PY : 🟡 In Progress
+            note right of DASH_PY
+              Serve/compose dashboard views + selection mode/env integration
+            end note
+
+            state "dashboard.py" as DASH_OLD : 🟡 In Progress
+            note right of DASH_OLD
+              Earlier dashboard runner (may be legacy)
+            end note
+
+            state "api_server.py" as API_SERVER : 🟡 In Progress
+            note right of API_SERVER
+              Optional local API endpoint for monitoring/config hot reload
+              Must align with engine.reload_config behavior
+            end note
+
+            state "dashboard.log" as DASH_LOG : ✅ Done
+            note right of DASH_LOG
+              Runtime logs for dashboard
+            end note
+        }
+
+        %% -------------------------
+        %% NEWS / AUX MODULES (OPTIONAL)
+        %% -------------------------
+        state "News (Optional Filter Layer)" as NEWS {
+            state "news_filter.py" as NEWS_FILTER : 🟡 In Progress
+            state "news_api_test.py" as NEWS_API_TEST : ✅ Done
+            state "test_news_api.py" as TEST_NEWS_API : ✅ Done
+            state "test_news.py" as TEST_NEWS : ✅ Done
+            state "mock_news.json" as MOCK_NEWS : ✅ Done
+            note right of NEWS_FILTER
+              Optional fundamental risk filter; not core to trade contract yet
+            end note
+        }
+
+        %% -------------------------
+        %% UTILITIES / DOCS / QA
+        %% -------------------------
+        state "Utilities & Docs" as UTIL {
+            state ".env" as DOTENV : ✅ Done
+            note right of DOTENV
+              Stores TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, API keys env vars
+            end note
+
+            state "check_env.py" as CHECK_ENV : ✅ Done
+            state "test_apis.py" as TEST_APIS : ✅ Done
+
+            state "README_TH.md" as README : 🟡 In Progress
+            note right of README
+              Needs updated runbook + commissioning checklist + effective config rules
+            end note
+
+            state "instructions.txt" as INSTR_TXT : ✅ Done
+            state "instructions.html" as INSTR_HTML : ✅ Done
+            state "Run procedure.html" as RUN_PROC : 🟡 In Progress
+            note right of RUN_PROC
+              Must reflect real command order and safety gates (post-fix)
+            end note
+
+            state "remove_emoji.py" as RM_EMOJI : ✅ Done
+            state "him_system.log" as SYS_LOG : ✅ Done
+            state "HIM_bundle.zip" as BUNDLE : ✅ Done
+            state "bu.txt" as BACKUP_NOTES : 🟡 In Progress
+        }
+    }
+
+    %% =========================
+    %% INDICATORS & TOOLS (GLOBAL NOTES)
+    %% =========================
+    note right of CORE
+      Technical Indicators / Tools (current + planned):
+      - MT5 API: symbol_info, ticks, order_send (Market Execution)
+      - MTF Structure: HH/HL vs LH/LL (engine.structure)
+      - ATR: period=14 (config), used for threshold and SL multiplier (atr_sl_mult)
+      - Breakout state machine: breakout_state/side/overshoot
+      - Proximity scoring: proximity_score vs breakout_proximity thresholds
+      - SuperTrend: configured in config.json but NOT implemented in engine yet (pending)
+      - AI Layer: strict JSON validation; confirm-only target (Option A)
+    end note
+
+    %% =========================
+    %% DEPENDENCIES (MUST-FINISH-BEFORE)
+    %% =========================
+    [*] --> CONFIG_JSON
+    CONFIG_JSON --> CONFIG_PY
+    CONFIG_PY --> STRAT_PROFILES
+
+    STRAT_PROFILES --> ENGINE
+    ENGINE --> AI_MENTOR
+    AI_BRIDGE --> AI_MENTOR
+
+    ENGINE --> EXECUTOR
+    AI_MENTOR --> EXECUTOR
+
+    %% Execution safety prerequisites
+    EXECUTOR --> TLOG
+    EXECUTOR --> TG
+    EXECUTOR --> PERF_TRACK
+    CLOSE_MON --> PERF_TRACK
+    TLOG --> DASH_PY
+    PERF_STATS --> DASH_PY
+    DASH_PY --> DASH_HTML
+    API_SERVER --> DASH_PY
+
+    %% Optional news dependency (gating layer)
+    NEWS_FILTER --> ENGINE
+
+    %% =========================
+    %% CRITICAL PATH (P0) NOTES
+    %% =========================
+    note left of EXECUTOR
+      Critical Path to Production:
+      1) Effective Config Merge (root + profiles[mode])
+      2) Engine contract: proposal(entry/sl/tp/rr) + score/confidence 0-100 + bos + supertrend_ok
+      3) AI mentor: use config thresholds (no hardcode), confirm-only
+      4) Executor safety: digits normalize, stops_level/freeze_level validate, spread filter, risk 1% sizing
+      5) State mgmt: duplicate protection + position policy + close monitor reconciliation
+    end note
