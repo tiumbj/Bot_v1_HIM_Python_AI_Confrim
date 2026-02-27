@@ -1,302 +1,126 @@
 """
 api_server.py — HIM Intelligent Dashboard API
-Version: 1.3.0
+Version: 1.6.0
 
 Changelog:
-- 1.3.0 (2026-02-26):
-  - ADD: mode "continuation" (Trend Continuation) for non-BOS entries (MTF+LTF aligned)
-  - ADD: continuation.* knobs in config:
-      continuation.enabled
-      continuation.require_mtf_ltf_align
-      continuation.require_htf_not_opposite
-      continuation.proximity_min_score
-      continuation.proximity_threshold_atr
-  - KEEP: precision / balanced / frequent (Option C BOS+Proximity+Retest)
-  - FIX: /api/mode/<mode_id> correct
-  - COMPAT: legacy A/B/C still accepted (A->precision, B->balanced, C->frequent)
+- 1.6.0 (2026-02-27):
+  - FEATURE: integrate PerformanceTracker (logs/signals.csv, logs/trades.csv, logs/performance_summary.json)
+  - UPDATE: /api/signal_preview logs signal snapshot for statistical validation
+  - UPDATE: /api/performance now returns computed summary (ready when trades resolved)
+  - KEEP: _get_engine() creates fresh engine instance per request (no cache)
+  - KEEP: Never calls mt5.shutdown()
+
 Notes:
-- Never calls mt5.shutdown()
+- Statistical validation uses MT5 history to resolve TP/SL hit-first after signal timestamp.
+- This API does NOT place trades.
+
 """
 
 from __future__ import annotations
 
 import json
-import logging
 import os
 import threading
 import time
 from typing import Any, Dict, Tuple
 
-from flask import Flask, jsonify, request, send_from_directory
-
 import MetaTrader5 as mt5
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
 
 from engine import TradingEngine
-from telegram_notifier import TelegramNotifier
 from performance_tracker import PerformanceTracker
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    handlers=[logging.FileHandler("him_system.log", encoding="utf-8"), logging.StreamHandler()],
-)
-logger = logging.getLogger("HIM")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 DASHBOARD_HTML = os.path.join(BASE_DIR, "dashboard.html")
 
 app = Flask(__name__)
+CORS(app)
+
 mt5_lock = threading.Lock()
+engine_lock = threading.Lock()
 
-engine = TradingEngine(config_path=CONFIG_PATH)
-tg = TelegramNotifier(config_path=CONFIG_PATH)
-
-
-def _safe_read_json(path: str) -> Dict[str, Any]:
-    try:
-        if not os.path.exists(path):
-            return {}
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except Exception as e:
-        logger.error(f"CRITICAL: cannot read json: {path} err={e}")
-        return {}
+_perf = PerformanceTracker()
 
 
-def _safe_write_json_atomic(path: str, data: Dict[str, Any]) -> bool:
-    try:
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, path)
-        return True
-    except Exception as e:
-        logger.error(f"CRITICAL: cannot write json: {path} err={e}")
-        return False
-
-
-def _deep_merge(dst: Dict[str, Any], src: Dict[str, Any]) -> Dict[str, Any]:
-    out = dict(dst) if isinstance(dst, dict) else {}
-    for k, v in (src or {}).items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
-
-
-def _normalize_config(cfg: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
-    changed = False
-    out = dict(cfg) if isinstance(cfg, dict) else {}
-
-    def set_if_missing_or_none(key: str, default: Any) -> None:
-        nonlocal changed
-        if key not in out or out.get(key) is None:
-            out[key] = default
-            changed = True
-
-    def ensure_dict(key: str, default: Dict[str, Any]) -> None:
-        nonlocal changed
-        v = out.get(key)
-        if v is None or not isinstance(v, dict):
-            out[key] = dict(default)
-            changed = True
-
-    def ensure_float(d: Dict[str, Any], key: str, default: float) -> None:
-        nonlocal changed
-        v = d.get(key)
-        if v is None:
-            d[key] = float(default)
-            changed = True
-            return
-        try:
-            d[key] = float(v)
-        except Exception:
-            d[key] = float(default)
-            changed = True
-
-    def ensure_int(d: Dict[str, Any], key: str, default: int) -> None:
-        nonlocal changed
-        v = d.get(key)
-        if v is None:
-            d[key] = int(default)
-            changed = True
-            return
-        try:
-            d[key] = int(float(v))
-        except Exception:
-            d[key] = int(default)
-            changed = True
-
-    # top-level
-    set_if_missing_or_none("mode", "balanced")
-    set_if_missing_or_none("symbol", "GOLD")
-    set_if_missing_or_none("enable_execution", False)
-    ensure_int(out, "confidence_threshold", 75)
-    ensure_float(out, "min_score", 7.0)
-    ensure_float(out, "min_rr", 2.0)
-    ensure_float(out, "lot", 0.01)
-
-    ensure_dict(out, "timeframes", {"htf": "H4", "mtf": "H1", "ltf": "M15"})
-    ensure_dict(out, "risk", {"atr_period": 14, "atr_sl_mult": 1.8})
-    ensure_dict(out, "supertrend", {"period": 10, "multiplier": 3.0})
-
-    # Option C knobs (breakout)
-    ensure_dict(
-        out,
-        "breakout",
-        {
-            "confirm_buffer_atr": 0.05,
-            "require_retest": True,
-            "retest_band_atr": 0.30,
-            "proximity_threshold_atr": 1.50,
-            "proximity_min_score": 10,
-        },
-    )
-    if isinstance(out.get("breakout"), dict):
-        b = out["breakout"]
-        ensure_float(b, "confirm_buffer_atr", 0.05)
-        b["require_retest"] = bool(b.get("require_retest", True))
-        ensure_float(b, "retest_band_atr", 0.30)
-        ensure_float(b, "proximity_threshold_atr", 1.50)
-        ensure_int(b, "proximity_min_score", 10)
-
-    # Continuation knobs (non-BOS)
-    ensure_dict(
-        out,
-        "continuation",
-        {
-            "enabled": False,
-            "require_mtf_ltf_align": True,
-            "require_htf_not_opposite": True,
-            "proximity_threshold_atr": 1.80,
-            "proximity_min_score": 20,
-        },
-    )
-    if isinstance(out.get("continuation"), dict):
-        c = out["continuation"]
-        c["enabled"] = bool(c.get("enabled", False))
-        c["require_mtf_ltf_align"] = bool(c.get("require_mtf_ltf_align", True))
-        c["require_htf_not_opposite"] = bool(c.get("require_htf_not_opposite", True))
-        ensure_float(c, "proximity_threshold_atr", 1.80)
-        ensure_int(c, "proximity_min_score", 20)
-
-    ensure_dict(
-        out,
-        "ai",
-        {
-            "enabled": False,
-            "provider": "openai",
-            "api_key_env": "OPENAI_API_KEY",
-            "timeout_seconds": 10,
-            "retry_attempts": 3,
-            "fallback_to_technical": True,
-            "model": "",
-        },
-    )
-    if isinstance(out.get("ai"), dict):
-        ai = out["ai"]
-        ai["enabled"] = bool(ai.get("enabled", False))
-        if ai.get("model") is None:
-            ai["model"] = ""
-            changed = True
-
-    ensure_dict(
-        out,
-        "telegram",
-        {
-            "enabled": True,
-            "token_env": "TELEGRAM_BOT_TOKEN",
-            "chat_id_env": "TELEGRAM_CHAT_ID",
-            "notify_on": ["signal", "trade", "error"],
-            "cooldown_sec": 900,
-        },
-    )
-
-    return out, changed
+def _get_engine() -> TradingEngine:
+    # Always create fresh engine instance
+    # Prevent stale class/version caching
+    return TradingEngine(CONFIG_PATH)
 
 
 def _load_config() -> Dict[str, Any]:
-    raw = _safe_read_json(CONFIG_PATH)
-    cfg, changed = _normalize_config(raw)
-    if changed:
-        ok = _safe_write_json_atomic(CONFIG_PATH, cfg)
-        logger.info(f"Config normalized (changed=True) write_back={ok}")
-    return cfg
+    if not os.path.exists(CONFIG_PATH):
+        return {}
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _ensure_dict(obj: Dict[str, Any], key: str, default: Dict[str, Any]) -> None:
+    if key not in obj or not isinstance(obj.get(key), dict):
+        obj[key] = dict(default)
 
 
 def _save_config_patch(patch: Dict[str, Any]) -> Tuple[bool, str]:
     if not isinstance(patch, dict):
-        return False, "patch_not_object"
-    cur = _load_config()
-    merged = _deep_merge(cur, patch)
-    merged, _ = _normalize_config(merged)
-    ok = _safe_write_json_atomic(CONFIG_PATH, merged)
-    return ok, ("ok" if ok else "write_failed")
+        return False, "patch_not_dict"
 
+    cfg = _load_config()
+    if not isinstance(cfg, dict):
+        cfg = {}
 
-def _ensure_mt5() -> Tuple[bool, str]:
+    for k, v in patch.items():
+        if isinstance(v, dict) and isinstance(cfg.get(k), dict):
+            cfg[k].update(v)
+        else:
+            cfg[k] = v
+
+    _ensure_dict(cfg, "_meta", {"config_version": "unknown"})
+    _ensure_dict(cfg, "timeframes", {"htf": "H4", "mtf": "H1", "ltf": "M15"})
+    _ensure_dict(cfg, "supertrend", {"period": 10, "mult": 3.0})
+    _ensure_dict(cfg, "risk", {"atr_period": 14, "atr_sl_mult": 1.6})
+    _ensure_dict(cfg, "breakout", {})
+    _ensure_dict(cfg, "continuation", {"enabled": False})
+    _ensure_dict(cfg, "sideway_scalp", {"enabled": False})
+    _ensure_dict(cfg, "telegram", {"enabled": False})
+    _ensure_dict(cfg, "ai", {"enabled": False})
+
     try:
-        if mt5.terminal_info() is not None:
-            return True, "already_initialized"
-        ok = mt5.initialize()
-        if not ok:
-            return False, f"initialize_failed: {mt5.last_error()}"
-        return True, "initialized"
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+        return True, "ok"
     except Exception as e:
-        return False, f"exception: {e}"
-
-
-def _get_tick(symbol: str) -> Dict[str, Any]:
-    ok, msg = _ensure_mt5()
-    if not ok:
-        return {"ok": False, "error": msg, "last_error": str(mt5.last_error())}
-    t = mt5.symbol_info_tick(symbol)
-    if t is None:
-        return {"ok": False, "error": f"tick_none for {symbol}", "last_error": str(mt5.last_error())}
-    return {
-        "ok": True,
-        "symbol": symbol,
-        "time_msc": int(getattr(t, "time_msc", 0)),
-        "bid": float(getattr(t, "bid", 0.0)),
-        "ask": float(getattr(t, "ask", 0.0)),
-        "last": float(getattr(t, "last", 0.0)),
-    }
+        return False, f"write_failed: {e}"
 
 
 def _mt5_snapshot(symbol: str) -> Dict[str, Any]:
-    ok, msg = _ensure_mt5()
-    snap: Dict[str, Any] = {
-        "mt5_ok": ok,
-        "mt5_state": msg,
-        "symbol": symbol,
-        "account": None,
-        "positions": [],
-        "positions_count": 0,
-        "last_error": str(mt5.last_error()),
-    }
-    if not ok:
+    snap: Dict[str, Any] = {"ok": False}
+    if not mt5.initialize():
+        snap["error"] = "mt5_init_failed"
         return snap
 
-    acc = mt5.account_info()
-    if acc:
-        snap["account"] = {
-            "login": getattr(acc, "login", None),
-            "balance": float(getattr(acc, "balance", 0.0)),
-            "equity": float(getattr(acc, "equity", 0.0)),
-            "margin": float(getattr(acc, "margin", 0.0)),
-            "margin_free": float(getattr(acc, "margin_free", 0.0)),
-            "profit": float(getattr(acc, "profit", 0.0)),
-            "currency": getattr(acc, "currency", None),
-        }
+    info = mt5.symbol_info(symbol)
+    if info is None:
+        snap["error"] = f"symbol_info_none: {symbol}"
+        return snap
 
+    tick = mt5.symbol_info_tick(symbol)
     positions = mt5.positions_get(symbol=symbol)
+
+    snap["ok"] = True
+    snap["symbol"] = symbol
+    snap["digits"] = int(getattr(info, "digits", 0))
+    snap["spread"] = int(getattr(tick, "spread", 0)) if tick else None
+    snap["ask"] = float(getattr(tick, "ask", 0.0)) if tick else None
+    snap["bid"] = float(getattr(tick, "bid", 0.0)) if tick else None
+
+    snap["positions"] = []
     if positions:
-        snap["positions_count"] = len(positions)
-        for p in positions[:30]:
+        for p in positions:
             snap["positions"].append(
                 {
                     "ticket": int(getattr(p, "ticket", 0)),
@@ -312,79 +136,46 @@ def _mt5_snapshot(symbol: str) -> Dict[str, Any]:
     return snap
 
 
-MODE_PRESETS: Dict[str, Dict[str, Any]] = {
-    "precision": {
-        "mode": "precision",
-        "confidence_threshold": 85,
-        "min_score": 8.5,
-        "min_rr": 2.5,
-        "breakout": {
-            "confirm_buffer_atr": 0.10,
-            "require_retest": True,
-            "retest_band_atr": 0.20,
-            "proximity_threshold_atr": 0.70,
-            "proximity_min_score": 60,
-        },
-        "continuation": {"enabled": False},
-    },
-    "balanced": {
-        "mode": "balanced",
-        "confidence_threshold": 75,
-        "min_score": 7.0,
-        "min_rr": 2.0,
-        "breakout": {
-            "confirm_buffer_atr": 0.05,
-            "require_retest": True,
-            "retest_band_atr": 0.25,
-            "proximity_threshold_atr": 0.80,
-            "proximity_min_score": 50,
-        },
-        "continuation": {"enabled": False},
-    },
-    "frequent": {
-        "mode": "frequent",
-        "confidence_threshold": 65,
-        "min_score": 6.0,
-        "min_rr": 1.7,
-        "breakout": {
-            "confirm_buffer_atr": 0.00,
-            "require_retest": True,
-            "retest_band_atr": 0.30,
-            "proximity_threshold_atr": 1.00,
-            "proximity_min_score": 40,
-        },
-        "continuation": {"enabled": False},
-    },
-    # NEW: non-BOS continuation
-    "continuation": {
-        "mode": "continuation",
-        "confidence_threshold": 65,
-        "min_score": 6.0,
-        "min_rr": 1.7,
-        "breakout": {  # keep filled but not required in this mode
-            "confirm_buffer_atr": 0.05,
-            "require_retest": True,
-            "retest_band_atr": 0.30,
-            "proximity_threshold_atr": 1.50,
-            "proximity_min_score": 10,
-        },
-        "continuation": {
-            "enabled": True,
-            "require_mtf_ltf_align": True,
-            "require_htf_not_opposite": True,
-            "proximity_threshold_atr": 1.80,
-            "proximity_min_score": 20,
-        },
-    },
-}
+def _get_tick(symbol: str) -> Dict[str, Any]:
+    if not mt5.initialize():
+        return {"ok": False, "error": "mt5_init_failed"}
+    t = mt5.symbol_info_tick(symbol)
+    if not t:
+        return {"ok": False, "error": "tick_none"}
+    return {"ok": True, "ask": float(t.ask), "bid": float(t.bid), "time_msc": int(getattr(t, "time_msc", 0))}
 
-LEGACY_MODE_MAP = {"A": "precision", "B": "balanced", "C": "frequent"}
+
+MODE_PRESETS: Dict[str, Dict[str, Any]] = {
+    "sideway_scalp": {
+        "mode": "sideway_scalp",
+        "confidence_threshold": 60,
+        "min_score": 5.5,
+        "min_rr": 1.5,
+        "risk": {"atr_period": 14, "atr_sl_mult": 1.6},
+        "timeframes": {"htf": "H1", "mtf": "M15", "ltf": "M5"},
+        "sideway_scalp": {
+            "enabled": True,
+            "adx_period": 14,
+            "adx_max": 22.0,
+            "bb_period": 20,
+            "bb_std": 2.0,
+            "bb_width_atr_max": 6.0,
+            "rsi_period": 14,
+            "rsi_overbought": 70.0,
+            "rsi_oversold": 30.0,
+            "require_confirmation": True,
+            "touch_buffer_atr": 0.10,
+        },
+        "continuation": {"enabled": False},
+    }
+}
+LEGACY_MODE_MAP = {"S": "sideway_scalp"}
 
 
 def _resolve_mode_id(mode_id: str) -> str:
     m = (mode_id or "").strip()
     if not m:
-        return "balanced"
+        return "sideway_scalp"
     u = m.upper()
     if u in LEGACY_MODE_MAP:
         return LEGACY_MODE_MAP[u]
@@ -393,13 +184,6 @@ def _resolve_mode_id(mode_id: str) -> str:
 
 @app.get("/")
 def root():
-    if os.path.exists(DASHBOARD_HTML):
-        return send_from_directory(BASE_DIR, "dashboard.html")
-    return jsonify({"error": "dashboard.html not found"}), 404
-
-
-@app.get("/dashboard.html")
-def dashboard_html():
     if os.path.exists(DASHBOARD_HTML):
         return send_from_directory(BASE_DIR, "dashboard.html")
     return jsonify({"error": "dashboard.html not found"}), 404
@@ -438,83 +222,60 @@ def api_status():
     with mt5_lock:
         mt5snap = _mt5_snapshot(symbol)
         price = _get_tick(symbol)
-
-    return jsonify(
-        {
-            "ts": int(time.time()),
-            "config": {
-                "mode": cfg.get("mode"),
-                "symbol": symbol,
-                "enable_execution": bool(cfg.get("enable_execution", False)),
-                "confidence_threshold": int(cfg.get("confidence_threshold", 75)),
-                "min_score": float(cfg.get("min_score", 7.0)),
-                "min_rr": float(cfg.get("min_rr", 2.0)),
-                "lot": float(cfg.get("lot", 0.01)),
-                "timeframes": cfg.get("timeframes", {}),
-                "supertrend": cfg.get("supertrend", {}),
-                "risk": cfg.get("risk", {}),
-                "breakout": cfg.get("breakout", {}),
-                "continuation": cfg.get("continuation", {}),
-            },
-            "mt5": mt5snap,
-            "price": price,
-        }
-    )
+    return jsonify({"ts": int(time.time()), "config": cfg, "mt5": mt5snap, "price": price})
 
 
 @app.get("/api/signal_preview")
 def api_signal_preview():
-    cfg = _load_config()
-    symbol = str(cfg.get("symbol", "GOLD"))
-    with mt5_lock:
-        try:
-            pkg = engine.generate_signal_package()
-        except Exception as e:
-            logger.error(f"CRITICAL: engine.generate_signal_package failed: {e}")
-            return jsonify({"ok": False, "error": f"engine_failed: {e}"}), 500
+    """
+    Generate a signal snapshot and log it to logs/signals.csv for statistical validation.
+    """
+    try:
+        cfg = _load_config()
+        tf_exec = str(((cfg.get("timeframes") or {}).get("ltf")) or "M5")
 
-    direction = str((pkg or {}).get("direction", "NONE")).upper()
-    tick = _get_tick(symbol)
-    dry = {"ok": True, "note": "direction=NONE"} if direction not in ("BUY", "SELL") else {
-        "ok": True,
-        "symbol": symbol,
-        "direction": direction,
-        "entry_ref": tick["ask"] if direction == "BUY" else tick["bid"],
-        "tick": tick,
-        "note": "DRY-RUN only (no order_send).",
-    }
-    return jsonify({"ok": True, "symbol": symbol, "package": pkg, "dry_run_order": dry})
+        eng = _get_engine()
+        pkg = eng.generate_signal_package()
+
+        # Log signal snapshot (both passed & blocked are logged; evaluation resolves only passed)
+        try:
+            _perf.append_signal_from_engine_package(pkg, tf_exec=tf_exec)
+        except Exception:
+            # Do not break signal endpoint if logger fails
+            pass
+
+        return jsonify({"ok": True, "signal": pkg})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.get("/api/performance")
 def api_performance():
+    """
+    Resolve past signals -> trades (TP/SL hit-first) and return summary.
+    ready=True when at least 1 trade resolved.
+    """
     cfg = _load_config()
-    symbol = str(cfg.get("symbol", "GOLD"))
+    horizon = int(request.args.get("horizon", "360") or "360")
+
     with mt5_lock:
-        pt = PerformanceTracker(stats_file="performance_stats.json", symbol=symbol, lookback_days=365)
-        pt.sync_trade_closes()
-        s = pt.summary()
+        try:
+            out = _perf.update_and_summarize(max_horizon_minutes=horizon)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e), "ts": int(time.time()), "config_mode": cfg.get("mode")}), 500
+
+    summary = (out.get("summary") or {}) if isinstance(out, dict) else {}
     return jsonify(
         {
             "ok": True,
-            "symbol": symbol,
-            "summary": {
-                "total_trades": s.total_trades,
-                "wins": s.wins,
-                "losses": s.losses,
-                "win_rate": s.win_rate,
-                "net_profit": s.net_profit,
-                "profit_factor": s.profit_factor,
-            },
+            "ready": bool(summary.get("ready", False)),
+            "resolved": int(out.get("resolved", 0) or 0),
+            "summary": summary,
+            "config_mode": cfg.get("mode"),
+            "ts": int(time.time()),
         }
     )
 
 
-def main() -> None:
-    logger.info("HIM API Server starting...")
-    logger.info("Open: http://127.0.0.1:5000/")
-    app.run(host="127.0.0.1", port=5000, debug=False)
-
-
 if __name__ == "__main__":
-    main()
+    app.run(host="127.0.0.1", port=5000, debug=False)

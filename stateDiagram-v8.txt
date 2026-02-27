@@ -1,0 +1,289 @@
+File: State Diagram.txt
+Project: Hybrid Intelligence Mentor (HIM) for GOLD (MT5 symbol: GOLD)
+Mode: sideway_scalp (Execution TF: M5)
+Repo: https://github.com/tiumbj/Hybrid_Intelligence_Mentor
+
+================================================================================
+0) PROJECT OVERVIEW (ภาพรวมแบบชาวบ้าน)
+================================================================================
+“สมอง” = สร้างสัญญาณ (BUY/SELL) ด้วยกฎ + quality gate
+“ปาก”  = API (ให้คน/ระบบอื่นเรียกดูสัญญาณ, patch config)
+“มือ”  = Execution (ส่งคำสั่งเข้า MT5 จริง)  <-- ตอนนี้ยังไม่เปิดใช้งานจริง
+
+ตอนนี้ที่ทำได้แล้ว:
+- Engine สร้างสัญญาณ BUY ได้จริงเมื่อ proximity+RSI+regime+confirmation ผ่าน
+- API /api/signal_preview ใช้ได้ และแก้ปัญหา engine cache แล้ว
+- ปรับ sensitivity ให้ “ไม่เงียบ” และ “ไม่สุ่มยิง” ด้วย adaptive tuning รอบล่าสุด
+
+ตอนนี้ที่ยังไม่เกิด:
+- ยังไม่มี “trade resolved (ปิด TP/SL)” เพราะยังไม่ได้ run execution layer ส่งออเดอร์เข้า MT5
+  (performance_tracker จึง resolved=0 เป็นเรื่องปกติ)
+
+================================================================================
+1) CURRENT LIVE CONFIG NUMBERS (ค่าปัจจุบันที่สำคัญ + เหตุผล)
+================================================================================
+A) Frozen Decisions (ห้ามแก้)
+- mode = sideway_scalp
+- execution TF = M5
+- regime filter = ADX + BB width/ATR
+- SL = ATR * 1.6
+- TP = SL * min_rr
+- min_rr = 1.5
+- require_confirmation = true
+- Hard touch allowed
+- API must not cache engine instance
+
+B) Adaptive Tuning ล่าสุด (แก้เพื่อให้ระบบไม่เงียบและเริ่มมี BUY จริง)
+- sideway_scalp.near_trigger_atr = 0.9
+  WHY: ลดความเข้ม “เข้าใกล้ band” เพื่อเพิ่มการเข้า watch ได้เร็วขึ้นเมื่อระบบเงียบ
+- sideway_scalp.rsi_soft_band = 25
+  WHY: RSI ไม่ extreme บ่อยใน sideway; เพิ่ม soft band เพื่อให้ mean-reversion trigger ทำงานจริง
+- sideway_scalp.proximity_window_atr = 2.5
+  WHY: ขยายหน้าต่าง proximity ให้ score สูงขึ้นเมื่อราคาเข้าใกล้ band -> เกิด BUY จริงแล้ว
+- sideway_scalp.proximity_score_min = 0.70 (ใช้เป็น quality gate)
+  WHY: หลังเริ่มมี BUY ให้ tighten คุณภาพ ลด noise; ยังต้องดู outcome เมื่อมี execution จริง
+
+หมายเหตุ:
+- config.json ใน repo อาจยังไม่สะท้อน “proximity_score_min” เพราะ patch ผ่าน /api/config
+- ตัวเลขด้านบนคือ “ตัวที่ใช้งานจริงล่าสุดตามการปรับผ่าน API ในบทสนทนา”
+
+================================================================================
+2) TECHNICAL INDICATORS + TOOLS USED
+================================================================================
+Indicators (คำนวณใน engine):
+- ATR: ใช้ทำ SL (ATR*1.6) และวัด proximity/zone
+- ADX: regime filter (sideway/trend)
+- Bollinger Bands: mean-reversion zone + bb_width_atr filter
+- RSI: overbought/oversold + soft band trigger
+- SuperTrend: ประกอบ bias/confirmation (ขึ้นกับโหมด/เงื่อนไข)
+- Structure (BOS/CHoCH): confirmation layer + context
+Tools/Infra:
+- MetaTrader5 Python API: ดึงราคา/แท่ง/ส่งออเดอร์ (execution layer)
+- Flask API: /api/signal_preview, /api/status, /api/config (patch config runtime)
+- CSV Logs: logs/signals.csv (signal telemetry), ใช้กับ performance_tracker
+- Telegram notifier: ส่งข้อความ/ขอ AI confirm (optional)
+- Dashboard (HTML/Python): แสดงสถานะ/สัญญาณ (optional)
+
+================================================================================
+3) FILE INVENTORY + MAIN RESPONSIBILITY + CONFIG USED + STATUS
+================================================================================
+(รายชื่อไฟล์มาจาก repo listing) :contentReference[oaicite:1]{index=1}
+
+Legend:
+✅ Done = เสถียร/ใช้งานได้
+🟡 In Progress = ใช้ได้บางส่วน/ยังต้องต่อให้ครบ
+⏳ Pending = ยังไม่ได้เริ่ม/ยังไม่เชื่อมเข้าระบบหลัก
+🔴 Issues = มีปัญหา/ต้องแก้ก่อนใช้งานจริง
+
+----------------------------------------
+A) CORE ENGINE (สมอง)
+----------------------------------------
+[engine.py] ✅ Done
+- Main class: TradingEngine
+- Main functions:
+  - load_config/reload_config: โหลด config.json + patch จาก API
+  - ensure_mt5/get_tick/get_data: ดึงข้อมูล MT5 (GOLD) และแท่ง TF ต่าง ๆ
+  - atr, adx, rsi, bollinger, supertrend: คำนวณ indicators
+  - structure: BOS/CHoCH/structure context
+  - _get_sideway_knobs: อ่าน knob ของ sideway_scalp (near_trigger_atr, proximity_window_atr, rsi_soft_band, require_confirmation, etc.)
+  - generate_signal_package: สร้าง signal payload (direction, entry/sl/tp/rr, blocked_by, score, watch_state)
+- Config used:
+  - symbol=GOLD, mode=sideway_scalp, timeframes, atr, risk, min_rr, sideway_scalp knobs, filters
+- Current numbers used (see section 1)
+
+[engine.py.final_backup] ⏳ Pending
+- Snapshot backup; ไม่ควรใช้รันจริง
+
+[engine_old1.py], [engine_old2.py] ⏳ Pending
+- Legacy; ใช้เทียบย้อนหลังเท่านั้น
+
+----------------------------------------
+B) API LAYER (ปาก)
+----------------------------------------
+[api_server.py] ✅ Done
+- Main functions:
+  - _get_engine(): แก้แล้วให้ “สร้าง engine ใหม่ทุก request” (กัน Flask cache instance)
+  - api_signal_preview: endpoint หลัก
+  - api_status: endpoint ดู MT5 snapshot + indicator summary
+  - api_get_config / api_post_config: อ่าน/patch config runtime
+  - api_performance: hook ไป performance_tracker (ถ้ามี)
+- Config used:
+  - อ่าน config.json + patch โดย /api/config
+- Status:
+  - Stable (เห็น engine_version ถูกต้อง, ใช้ patch config ได้)
+
+----------------------------------------
+C) CONFIG + RESOLVER (สมองอ่านกฎ)
+----------------------------------------
+[config.json] ✅ Done (ฐานหลัก)
+- เก็บ symbol/mode/timeframes/atr/risk/min_rr/filters/sideway_scalp
+- NOTE: runtime patch อาจเพิ่ม key ใหม่ (เช่น proximity_score_min)
+
+[config_resolver.py] 🟡 In Progress
+- หน้าที่: map “profile/mode” -> ใช้ค่าพารามิเตอร์ที่เหมาะสม
+- ใช้ร่วมกับ strategy_profiles.py
+
+[strategy_profiles.py] 🟡 In Progress
+- หน้าที่: profile tuning presets (moderate/aggressive/etc.)
+- ตอนนี้ใช้จริงในบางส่วน; ต้องทำให้ “source of truth” ชัด (config vs profiles)
+
+[config.py] 🔴 Issues (Security risk)
+- มักมี secrets (telegram token, keys)
+- ห้าม import/commit secrets เพิ่ม; ควรใช้ .env หรือ config_local.py ที่ถูก ignore
+
+[config.backup.before_*.json] ⏳ Pending
+- backup configs; ใช้ audit/compare
+
+----------------------------------------
+D) EXECUTION LAYER (มือกดออเดอร์)  <-- จุดที่ “ยังไม่เปิดรันจริง”
+----------------------------------------
+[mentor_executor.py] 🟡 In Progress
+- เป้าหมาย: ดึง /api/signal_preview แล้วส่งคำสั่งเข้า MT5
+- สถานะล่าสุดจากบทสนทนา: ยังไม่ยืนยันว่า “รันตัวนี้จริง” และส่งออเดอร์จริงแล้ว
+- ต้องทำให้ชัด:
+  - RUN MODE: demo live execution
+  - magic number
+  - risk sizing
+  - order_send + SL/TP
+  - logging -> trade_logger/performance_tracker
+
+[mt5_tester.py] ✅ Done
+- ทดสอบเชื่อม MT5 / symbol GOLD / tick data
+
+[trade_close_monitor.py] 🟡 In Progress
+- หน้าที่: monitor trade close (TP/SL) เพื่อสร้าง “resolved trades”
+- ปัจจุบัน performance_tracker ยัง resolved=0 เพราะไม่มี execution จริง
+
+[trade_logger.py] 🟡 In Progress
+- หน้าที่: log รายละเอียด trade execution + result
+
+----------------------------------------
+E) PERFORMANCE / VALIDATION (สถิติ)
+----------------------------------------
+[performance_tracker.py] 🟡 In Progress
+- หน้าที่: อ่าน logs แล้วสรุป winrate/avg R/drawdown
+- ตอนนี้ resolved=0 เป็นปกติ เพราะยังไม่มี trade close จริง
+- ต้องรอ execution layer + close monitor จึงจะ “ready=true”
+
+----------------------------------------
+F) AI + TELEGRAM (optional)
+----------------------------------------
+[ai_bridge_v1.py] ⏳ Pending
+- หน้าที่: เชื่อม AI (confirm-only) ผ่าน API
+
+[ai_confirmation_telegram.py] ⏳ Pending
+- หน้าที่: ขอ AI confirm ผ่าน Telegram
+
+[ai_mentor.py] ⏳ Pending
+- หน้าที่: AI mentor reasoning / explanation (confirm-only)
+
+[telegram_notifier.py] 🟡 In Progress
+- หน้าที่: ส่งข้อความ Telegram (status/signal)
+
+[ai_signal_tester.py], [test_ai_api.py], [test_apis.py] ⏳ Pending
+- test harness
+
+----------------------------------------
+G) DASHBOARD / UI (optional)
+----------------------------------------
+[dashboard.html] 🟡 In Progress
+[dashboard.py] 🟡 In Progress
+[intelligent_dashboard.py] 🟡 In Progress
+- หน้าที่: แสดง status/signal/config summary
+- ยังไม่ critical ต่อ core trading loop
+
+----------------------------------------
+H) NEWS / FILTER (optional)
+----------------------------------------
+[news_filter.py], [news_api_test.py], [test_news*.py], [mock_news.json] ⏳ Pending
+- หน้าที่: กรองข่าว/หลีกเลี่ยงช่วงข่าวแรง (ยังไม่อยู่ใน scope รอบนี้)
+
+----------------------------------------
+I) DOCS / PROCEDURE / TEMPLATES
+----------------------------------------
+[README_TH.md], [Run procedure.html], [instructions.txt/html], [Code Run Test.txt] ✅ Done
+- วิธีรัน + คู่มือ
+
+[templates/] 🟡 In Progress
+- HTML templates (Flask)
+
+[stateDiagram-v2.txt], [stateDiagram-v3.txt] ✅ Done (legacy)
+- diagram version เก่า; ไฟล์ใหม่คือ State Diagram.txt ฉบับนี้
+
+[remove_emoji.py] ⏳ Pending
+- utility
+
+[bu.txt] ⏳ Pending
+- misc
+
+================================================================================
+4) DEPENDENCY MAP (ลำดับทำงาน + ต้องเสร็จก่อนเริ่มอะไร)
+================================================================================
+(ใช้ลูกศรแบบ diagram wording)
+
+[*] START
+  |
+  v
+(ENV READY) --> [check_env.py] (optional) --> (MT5 READY)
+  |
+  v
+(MT5 READY) --> [mt5_tester.py] ✅
+  |
+  v
+(CONFIG BASELINE) --> [config.json] ✅
+  |
+  v
+(ENGINE CORE) --> [engine.py] ✅
+  |
+  v
+(API ONLINE) --> [api_server.py] ✅
+  |                 |
+  |                 +--> /api/config patch (runtime tuning)
+  |
+  +--> (SIGNAL LOGGING) --> logs/signals.csv (runtime)
+  |
+  v
+(EXECUTION LAYER) --> [mentor_executor.py] 🟡  <-- ต้อง “เปิดรันจริง” เพื่อส่งออเดอร์
+  |
+  v
+(TRADE LOGGING) --> [trade_logger.py] 🟡
+  |
+  v
+(TRADE CLOSE MONITOR) --> [trade_close_monitor.py] 🟡
+  |
+  v
+(PERFORMANCE STATS READY) --> [performance_tracker.py] 🟡
+  |
+  v
+(ADAPTIVE TUNING LOOP) --> patch knobs ทีละ 1 ค่า + เก็บ 10 trades ต่อ iteration
+
+Optional branches:
+(API ONLINE) --> [dashboard.py/html] 🟡
+(API ONLINE) --> [telegram_notifier.py] 🟡 --> [ai_confirmation_telegram.py] ⏳
+
+================================================================================
+5) CURRENT “WORK IN PROGRESS” (สิ่งที่ต้องทำต่อทันที)
+================================================================================
+Primary Goal ตอนนี้:
+- เปิด “Execution Layer” ให้ต่อ MT5 demo และส่งออเดอร์จริง
+- ทำให้ trade close เกิดจริง -> performance_tracker เริ่ม resolved > 0
+
+Next Steps (เรียงลำดับ):
+1) ยืนยันไฟล์ที่ใช้รัน live execution จริง:
+   - mentor_executor.py (ถ้าใช่) ต้องตรวจว่าเรียก mt5.order_send จริง + set SL/TP + magic number
+2) ทำ logging ให้ครบ:
+   - ทุก trade ที่ส่ง -> trade_logger.csv/json
+3) ทำ close monitor:
+   - ดึง history/deals -> mark resolved
+4) ให้ performance_tracker อ่าน resolved trades แล้วสรุป:
+   - winrate, avg_r, max_drawdown_r
+5) เริ่ม Adaptive Tuning “ของจริง” เมื่อ resolved >= 10 (ขั้นต่ำ)
+
+================================================================================
+6) GIT COMMAND ORDER (ใช้งานได้จริง)
+================================================================================
+git status
+git pull origin main
+git add .
+git commit -m "Update State Diagram and clarify execution phase dependencies"
+git push origin main

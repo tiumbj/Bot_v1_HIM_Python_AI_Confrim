@@ -1,0 +1,285 @@
+STATE DIAGRAM (WORDING) — Hybrid Intelligence Mentor (HIM)
+Repo: https://github.com/tiumbj/Hybrid_Intelligence_Mentor
+Last updated: 2026-02-26 (Asia/Bangkok)
+
+================================================================================
+A) SYSTEM OVERVIEW (TEXT-STATE DIAGRAM, NOT MERMAID)
+================================================================================
+
+[START]
+  |
+  v
+STATE: "00 Repo/Env Ready" : ✅ Done
+  - Purpose: โค้ดอยู่ใน GitHub, รันบน Windows + MT5
+  - Entry criteria: clone repo, venv, MT5 เปิดอยู่ (ห้าม shutdown)
+  - Transition -> "01 Config Integrity"
+
+  |
+  v
+STATE: "01 Config Integrity (config.json sane)" : 🟡 In Progress (เสี่ยงกลับมาได้)
+  - Purpose: config.json ต้องเป็น JSON object (dict) ไม่ใช่ list log, ไม่มี BOM, mode ถูกต้อง
+  - Known issue (เกิดแล้ว): config.json เคยถูกเขียนทับเป็น list ของ decision log -> แตกทุกอย่าง
+  - Current numbers (locked baseline):
+      mode = "CONTINUATION"
+      continuation.enabled = true
+      min_rr = 2.0
+      risk.atr_sl_mult = 1.6  (แก้จาก 1.8 เพื่อแก้ rr_too_low)
+      timeframes: HTF=H4, MTF=H1, LTF=M15
+      atr_period=14
+      supertrend_period=10, supertrend_mult=3.0
+      continuation_proximity_threshold_atr=1.8
+      continuation_proximity_min_score=20.0 (อาจต้อง tune ตามตลาด)
+  - Transition -> "02 Engine Signal Contract"
+
+  |
+  v
+STATE: "02 Engine Signal Contract (engine.py)" : ✅ Done
+  - Purpose: สร้าง tradeable contract (direction, entry, SL, TP, RR, context.blocked_by)
+  - Deterministic gate:
+      - direction in {BUY, SELL} เท่านั้นถึงถือว่า tradeable
+      - blocked_by ต้องเป็น null
+      - RR >= min_rr (2.0)
+      - continuation mode: ไม่ require BOS, แต่ require MTF+LTF aligned + HTF not opposite + SuperTrend + Proximity
+  - Technical Indicators used:
+      - Market Structure (HTF/MTF/LTF): HH/HL, LH/LL (bias_source fallback)
+      - BOS / Breakout reference (แต่ continuation ไม่ require)
+      - ATR(14) ใช้ proximity, buffer, SL sizing
+      - SuperTrend(10, 3.0) ใช้ direction confirmation
+      - Proximity scoring: distance vs threshold_atr และ score vs min_score
+      - Retest band (Option C breakout modes)
+  - Recent outcome: หลังตั้ง risk.atr_sl_mult=1.6 -> rr ผ่าน 2.0 และ blocked_by=null ได้
+  - Transition -> "03 Execution Safety Layer"
+
+  |
+  v
+STATE: "03 Execution Safety Layer (mentor_executor.py)" : 🟡 In Progress
+  - Purpose: รับ contract จาก engine แล้วทำ guardrails ก่อนส่ง MT5 order (หรือ dry-run)
+  - Guardrails (ต้องผ่านก่อน place order):
+      - Spread limit (points)
+      - stop_level / freeze_level distance (SL/TP ห่างพอ)
+      - open-position guard (กันซ้อน)
+      - duplicate/cooldown guard (กันยิงซ้ำ)
+      - trade_allowed / symbol visible
+  - Constraints: ห้าม mt5.shutdown() ทุกกรณี
+  - Current risk: ต้องทดสอบจริงด้วย engine contract ที่ blocked_by=null (ตอนนี้ทำได้แล้ว)
+  - Transition -> "04 Live/Dry Run Order" เมื่อ decision approved=true
+
+  |
+  v
+STATE: "04 Live/Dry Run Order (MT5 order_send)" : 🟡 In Progress
+  - Purpose: ส่ง market order พร้อม SL/TP (หรือ dry-run ถ้าปิด enable_live_trading)
+  - Tools: MetaTrader5 Python package
+  - Production-safe: default ควรเป็น dry-run จนกว่าทดสอบผ่านทั้งหมด
+  - Transition -> "05 Logging/Monitoring"
+
+  |
+  v
+STATE: "05 Logging/Monitoring (trade_logger/performance/close monitor)" : 🔴 Issues
+  - Purpose: บันทึก decision/events, ติดตามผล, monitor ปิดออเดอร์
+  - Known critical incident:
+      - config.json เคยถูกเขียนทับเป็น list log (catastrophic)
+      - ต้องแก้ root cause: log writer ต้องไม่สามารถเขียนทับ config.json ได้
+  - Transition -> "01 Config Integrity" (rollback) ถ้าเกิด overwrite ซ้ำ
+
+  |
+  v
+STATE: "06 API + Dashboard Control (api_server/dashboard.html)" : 🟡 In Progress
+  - Purpose: เปลี่ยน mode (precision/balanced/frequent/continuation), ดูสถานะ, expose endpoints
+  - Known risk:
+      - api_server อาจ normalize mode กลับ balanced ถ้า mapping/profile ไม่ตรง หรือเขียน config ผิด
+      - ต้องยืนยันว่า "CONTINUATION" ถูก set และไม่ถูกทับ
+  - Transition -> "01 Config Integrity" ทุกครั้งที่มี write config
+
+  |
+  v
+STATE: "07 Telegram Notification (telegram_notifier.py)" : ✅ Done
+  - Purpose: ส่งข้อความแจ้งเตือน (token/chat_id ผ่าน .env key names ใน config)
+  - Policy: ส่งเฉพาะ approved/สำคัญ (ลด spam)
+
+  |
+  v
+STATE: "08 Optional AI Layer (ai_bridge/ai_mentor)" : ⏳ Pending (inactive)
+  - Purpose: future confirmation-only layer (ไม่เป็น core logic)
+  - Current: ไม่ active สำหรับ production execution
+
+[END]
+
+================================================================================
+B) FILE INVENTORY + MAIN FUNCTION + CONFIG TOUCHPOINTS + STATUS
+================================================================================
+
+Legend:
+✅ Done | 🟡 In Progress | ⏳ Pending | 🔴 Issues
+
+FOLDER: /templates/
+- templates/* : ⏳ Pending
+  - Purpose: templates for UI/API (ยังไม่เป็น core)
+
+ROOT FILES (ตาม repo tree):
+1) README_TH.md : ✅ Done
+   - Purpose: เอกสารภาพรวมภาษาไทย
+
+2) Run procedure.html : 🟡 In Progress
+   - Purpose: ขั้นตอนรันระบบจริง (ควรอัปเดตให้ตรงกับ continuation + executor)
+
+3) instructions.html / instructions.txt : 🟡 In Progress
+   - Purpose: คู่มือ/กฎการใช้งาน (ควร sync กับ baseline ล่าสุด)
+
+4) config.json : 🟡 In Progress (เพราะเคยถูก overwrite)
+   - Main role: Source-of-truth knobs
+   - Current locked values (ล่าสุด):
+       mode="CONTINUATION"
+       continuation.enabled=true
+       min_rr=2.0
+       risk.atr_sl_mult=1.6 (เหตุผล: แก้ rr_too_low ให้ RR>=2.0)
+   - Risk: ต้องกันไม่ให้ log writer เขียนทับอีก
+
+5) config_resolver.py : ✅ Done
+   - Main function: deep-merge (root config + profiles[MODE]) แล้ว normalize mode
+   - Dependency: engine.py, api_server.py, executor (ใช้ effective config)
+
+6) api_server.py : 🟡 In Progress
+   - Main function: Flask API server
+     - /api/mode/<mode_id> เขียน config.json เพื่อเปลี่ยนโหมด
+     - normalize config (เสี่ยงทับ mode)
+   - Dependency: config.json integrity ต้องแข็งแรงก่อนใช้งานหนัก
+
+7) dashboard.html : 🟡 In Progress
+   - Main function: UI ปุ่ม mode: precision/balanced/frequent/continuation
+   - Dependency: api_server.py ต้อง mapping mode ถูกต้อง
+
+8) dashboard.py / intelligent_dashboard.py : 🟡 In Progress
+   - Main function: อาจเป็น wrapper/dashboard runner + hot reload config
+   - Risk: ถ้าเขียน config ผิดจะพา config พัง
+
+9) engine.py : ✅ Done (Engine v2.9.0)
+   - Main function:
+     - Load config (effective)
+     - Compute structure (HTF/MTF/LTF)
+     - Compute ATR, SuperTrend, Proximity score
+     - Apply mode logic:
+         * continuation: no BOS required
+         * other modes: breakout Option C (BOS+Proximity+Retest)
+     - Output contract:
+         direction, entry_candidate, stop_candidate, tp_candidate, rr, context.blocked_by
+   - Current tuned number:
+       atr_sl_mult=1.6 (ผ่าน RR gate)
+
+10) mentor_executor.py : 🟡 In Progress (Execution Hardening)
+    - Main function:
+      - Connect MT5 (no shutdown)
+      - Pull engine contract
+      - Technical gate (direction != NONE, blocked_by null, rr>=min_rr)
+      - Safety guardrails (spread/stops/open pos/dedupe)
+      - Dry-run or order_send
+      - Telegram notify (approved only)
+    - Dependency: engine.py ต้อง produce blocked_by=null ถึงจะทดสอบ guardrails ได้
+
+11) telegram_notifier.py : ✅ Done
+    - Main function: ส่ง Telegram โดยอ่าน ENV KEY NAMES จาก config.json + .env
+
+12) trade_logger.py : 🔴 Issues
+    - Main function: append-only JSON event log
+    - Critical risk: เคยทำให้ config.json กลายเป็น list log (ต้อง fix path guard ห้ามเขียน config.json)
+
+13) trade_close_monitor.py : 🟡 In Progress
+    - Main function: monitor order close + update state/performance
+    - Dependency: trade_logger/performance_tracker ต้อง path ถูก
+
+14) performance_tracker.py : 🟡 In Progress
+    - Main function: เก็บสถิติ performance, drawdown, winrate ฯลฯ
+    - Dependency: trade_close_monitor + trade_logger
+
+15) emergency_fix.py : ✅ Done (utility)
+    - Main function: กู้ config.json ถ้าถูกเขียนทับเป็น list, backup + restore + dump log file
+
+16) ai_bridge_v1.py : ⏳ Pending
+    - Main function: ส่งไป AI API (future confirmation-only)
+
+17) ai_mentor.py : ⏳ Pending
+    - Main function: deterministic confidence mapping / AI layer scaffold
+
+18) ai_signal_tester.py : 🟡 In Progress
+    - Main function: test sending/formatting signals (telegram/test harness)
+
+19) mt5_tester.py / check_env.py : ✅ Done
+    - Main function: เช็ค environment/MT5 connection
+
+20) news_filter.py / test_news*.py / mock_news.json / news_api_test.py : ⏳ Pending
+    - Main function: news filter (หลีกเลี่ยงข่าวแรง) — ยังไม่เป็น core gate ใน production
+
+21) strategy_profiles.py : 🟡 In Progress
+    - Main function: preset โปรไฟล์ (precision/balanced/frequent/continuation) ให้ API/Dashboard ใช้
+
+22) engine_old1.py / engine_old2.py / engine.py.final_backup / mentor_executor backups / config backups : ✅ Done (archive)
+    - Main function: reference/rollback (ไม่ควรใช้ production run)
+
+================================================================================
+C) DEPENDENCY GRAPH (WORDING)
+================================================================================
+
+Core chain (must be solid in order):
+1) config.json integrity
+   -> 2) config_resolver.py (effective config)
+      -> 3) engine.py (signal contract)
+         -> 4) mentor_executor.py (guardrails + order)
+            -> 5) trade_logger.py + performance_tracker.py + trade_close_monitor.py
+            -> 6) telegram_notifier.py (notify)
+
+Control plane:
+dashboard.html
+   -> api_server.py (write config)
+      -> config.json integrity (must not corrupt)
+         -> affects engine/executor
+
+AI plane (future):
+ai_bridge_v1.py / ai_mentor.py
+   -> should only read engine contract + return confirm (no direct MT5)
+
+================================================================================
+D) CURRENT WORK STATUS + NEXT STEPS (ACTIONABLE)
+================================================================================
+
+Current stable baseline (must keep):
+- mode="CONTINUATION"
+- continuation.enabled=true
+- min_rr=2.0
+- risk.atr_sl_mult=1.6 (เหตุผล: ทำให้ RR>=2 ผ่านได้จริง)
+- MT5 must not shutdown
+
+Current blocking risks:
+- trade_logger.py (หรือส่วน logging) อาจเขียนทับ config.json ซ้ำ -> ต้อง fix ถาวร
+- api_server/dashboard อาจ normalize mode กลับ balanced -> ต้องตรวจ mapping/profile
+
+Next steps (ลำดับ):
+1) Run mentor_executor.py เมื่อ engine blocked_by=null (ตอนนี้ทำได้แล้ว) เพื่อดู safety_blocked ใดๆ
+2) Fix trade_logger path guard: ห้ามเขียน config.json 100% (catastrophic prevention)
+3) Verify api_server mode mapping: CONTINUATION stays, no normalize regression
+4) Commit หลังทดสอบผ่านเท่านั้น
+
+================================================================================
+E) REAL COMMAND ORDER (WORKFLOW)
+================================================================================
+
+Run / Test:
+cd C:\Hybrid_Intelligence_Mentor
+python engine.py
+python mentor_executor.py
+
+Git (only after tests pass):
+cd C:\Hybrid_Intelligence_Mentor
+git status
+git add .
+git commit -m "stabilize continuation + risk atr_sl_mult=1.6 + execution hardening"
+git push
+git log --oneline -5
+
+================================================================================
+F) CHAT RULES (FOR NEXT DEVELOPER/AI)
+================================================================================
+- โค้ดทุกครั้งต้อง rewrite ทั้งไฟล์ ห้าม patch บางส่วน
+- ต้องระบุ: ชื่อโค้ด + ที่อยู่ไฟล์ + คำสั่งรัน + เวอร์ชัน
+- อธิบาย step-by-step แบบกระชับ
+- ภาษาไทย
+- Production-safe เสมอ
+- อย่า commit ถ้ายังไม่ทดสอบผ่าน

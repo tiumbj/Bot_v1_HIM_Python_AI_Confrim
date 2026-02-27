@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "tickets": {
+    "1907380194": {
+      "symbol": "GOLD",
+      "type": 1,
+      "price_open": 5188.81,
+      "initial_sl": 5194.29,
+      "initial_tp": 5180.66,
+      "initial_risk": 5.479999999999563,
+      "created_iso": "2026-02-27T12:07:24+00:00",
+      "last_manage_iso": "2026-02-27T12:58:44+00:00"
+    },
+    "1907464705": {
+      "symbol": "GOLD",
+      "type": 1,
+      "price_open": 5191.12,
+      "initial_sl": 5196.46,
+      "initial_tp": 5182.83,
+      "initial_risk": 5.3400000000001455,
+      "created_iso": "2026-02-27T13:01:16+00:00",
+      "last_manage_iso": "2026-02-27T13:06:18+00:00"
+    },
+    "1907479601": {
+      "symbol": "GOLD",
+      "type": 1,
+      "price_open": 5196.99,
+      "initial_sl": 5202.95,
+      "initial_tp": 5188.06,
+      "initial_risk": 5.960000000000036,
+      "created_iso": "2026-02-27T13:07:18+00:00",
+      "last_manage_iso": "2026-02-27T13:07:18+00:00"
+    },
+    "1907487256": {
+      "symbol": "GOLD",
+      "type": 1,
+      "price_open": 5208.78,
+      "initial_sl": 5215.9,
+      "initial_tp": 5197.7,
+      "initial_risk": 7.119999999999891,
+      "created_iso": "2026-02-27T13:08:19+00:00",
+      "last_manage_iso": "2026-02-27T13:15:22+00:00"
+    }
+  }
+}

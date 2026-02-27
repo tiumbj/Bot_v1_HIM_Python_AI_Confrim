@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "last_trade": {
+    "GOLD:SELL": {
+      "ts": 1772197669.101549,
+      "iso": "2026-02-27T13:07:49+00:00",
+      "order_ok": true,
+      "retcode": 10009
+    },
+    "GOLD:BUY": {
+      "ts": 1772183417.6380086,
+      "iso": "2026-02-27T09:10:17+00:00",
+      "order_ok": true,
+      "dry_run": false,
+      "retcode": 10009,
+      "deal": 1871222491,
+      "order": 1907201157
+    }
+  }
+}

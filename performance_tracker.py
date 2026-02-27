@@ -1,308 +1,566 @@
 """
-performance_tracker.py
-Version: 2.0.1
-Changelog:
-- 2.0.1: Add schema migration/sanitize for existing performance_stats.json to avoid undefined rows in dashboard.
-Rules:
-- Must be deterministic and testable
-- Never call mt5.shutdown() (to avoid killing main session)
-- Idempotent: do not double-count closed deals
+HIM Performance Tracker
+Version: 1.0.0
+
+Purpose:
+- Statistical validation for HIM sideway_scalp signals (M5 execution).
+- Collect signals -> resolve outcomes (TP/SL hit-first) -> compute winrate/avgR/drawdown.
+
+Data contract:
+- signals saved to logs/signals.csv
+- resolved trades saved to logs/trades.csv
+- summary saved to logs/performance_summary.json
+
+Important:
+- This module evaluates signal outcomes using MT5 price history after the signal timestamp.
+- It does NOT place trades. It is an evaluator/logger for statistical validation.
+
+Backtest evidence (placeholder):
+- Not available yet (requires 30–50 signals collection and resolution).
+
+Parameter rationale (practical):
+- max_horizon_minutes default 360: limit evaluation window to avoid "never resolved" signals.
+- timeframe default M5: matches execution TF requirement.
+
 """
 
 from __future__ import annotations
 
-import os
+import argparse
+import csv
 import json
+import os
+import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 import MetaTrader5 as mt5
 
 
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+SIGNALS_CSV = os.path.join(LOG_DIR, "signals.csv")
+TRADES_CSV = os.path.join(LOG_DIR, "trades.csv")
+SUMMARY_JSON = os.path.join(LOG_DIR, "performance_summary.json")
+
+
+def _ensure_dirs() -> None:
+    os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def _utc_now_ts() -> int:
+    return int(time.time())
+
+
+def _dt_utc_from_ts(ts: int) -> datetime:
+    return datetime.fromtimestamp(int(ts), tz=timezone.utc)
+
+
+def _safe_float(v: Any, default: float = 0.0) -> float:
+    try:
+        if v is None:
+            return float(default)
+        return float(v)
+    except Exception:
+        return float(default)
+
+
+def _safe_int(v: Any, default: int = 0) -> int:
+    try:
+        if v is None:
+            return int(default)
+        return int(v)
+    except Exception:
+        return int(default)
+
+
+def _tf_from_str(tf: str) -> int:
+    t = (tf or "").strip().upper()
+    mapping = {
+        "M1": mt5.TIMEFRAME_M1,
+        "M2": mt5.TIMEFRAME_M2,
+        "M3": mt5.TIMEFRAME_M3,
+        "M4": mt5.TIMEFRAME_M4,
+        "M5": mt5.TIMEFRAME_M5,
+        "M6": mt5.TIMEFRAME_M6,
+        "M10": mt5.TIMEFRAME_M10,
+        "M12": mt5.TIMEFRAME_M12,
+        "M15": mt5.TIMEFRAME_M15,
+        "M20": mt5.TIMEFRAME_M20,
+        "M30": mt5.TIMEFRAME_M30,
+        "H1": mt5.TIMEFRAME_H1,
+        "H2": mt5.TIMEFRAME_H2,
+        "H3": mt5.TIMEFRAME_H3,
+        "H4": mt5.TIMEFRAME_H4,
+        "H6": mt5.TIMEFRAME_H6,
+        "H8": mt5.TIMEFRAME_H8,
+        "H12": mt5.TIMEFRAME_H12,
+        "D1": mt5.TIMEFRAME_D1,
+        "W1": mt5.TIMEFRAME_W1,
+        "MN1": mt5.TIMEFRAME_MN1,
+    }
+    if t not in mapping:
+        raise ValueError(f"unknown timeframe: {tf}")
+    return mapping[t]
+
+
+def _mt5_init_or_raise() -> None:
+    if mt5.initialize():
+        return
+    time.sleep(0.2)
+    if not mt5.initialize():
+        raise RuntimeError("MT5 initialize failed")
+
+
 @dataclass
-class PerfSummary:
-    total_trades: int
-    wins: int
-    losses: int
-    win_rate: float
-    net_profit: float
-    gross_profit: float
-    gross_loss: float
-    profit_factor: float
-    best_trade: float
-    worst_trade: float
+class SignalRow:
+    signal_id: str
+    ts: int
+    symbol: str
+    mode: str
+    tf_exec: str
+    direction: str
+    entry: float
+    sl: float
+    tp: float
+    rr: float
+    proximity_score: float
+    blocked_by: str
+
+    # context metrics (optional but recommended)
+    atr: float
+    adx: float
+    bb_width_atr: float
+    rsi: float
+    watch_state: str
+    engine_version: str
 
 
 class PerformanceTracker:
-    def __init__(
-        self,
-        stats_file: str = "performance_stats.json",
-        symbol: str = "GOLD",
-        lookback_days: int = 365,
-    ):
-        self.stats_file = stats_file
-        self.symbol = symbol
-        self.lookback_days = int(lookback_days)
-        self.stats = self._load_stats()
+    def __init__(self) -> None:
+        _ensure_dirs()
+        self._init_signals_csv()
+        self._init_trades_csv()
 
-    def _default_stats(self) -> Dict[str, Any]:
-        return {
-            "symbol": self.symbol,
-            "lookback_days": self.lookback_days,
-            "total_trades": 0,
-            "winning_trades": 0,
-            "losing_trades": 0,
-            "gross_profit": 0.0,
-            "gross_loss": 0.0,
-            "net_profit": 0.0,
-            "best_trade": 0.0,
-            "worst_trade": 0.0,
-            "processed_deal_tickets": [],
-            "trades": [],
-            "last_sync_iso": None,
-        }
-
-    def _sanitize_trade(self, t: Any) -> Dict[str, Any] | None:
-        """
-        Normalize old/partial trade records so dashboard never sees undefined keys.
-        Returns normalized dict or None if unusable.
-        """
-        if not isinstance(t, dict):
-            return None
-
-        # Must have at least time or time_iso to be useful; must have deal_ticket to identify.
-        deal_ticket = t.get("deal_ticket")
-        if deal_ticket is None:
-            return None
-
-        try:
-            deal_ticket = int(deal_ticket)
-        except Exception:
-            return None
-
-        time_sec = t.get("time")
-        time_iso = t.get("time_iso")
-
-        if time_sec is None and not time_iso:
-            return None
-
-        # derive time/time_iso if one is missing
-        if time_sec is None:
-            try:
-                # best-effort parse "YYYY-MM-DD HH:MM:SS"
-                dt = datetime.strptime(str(time_iso), "%Y-%m-%d %H:%M:%S")
-                time_sec = int(dt.timestamp())
-            except Exception:
-                time_sec = 0
-
-        if not time_iso:
-            try:
-                time_iso = datetime.fromtimestamp(int(time_sec)).strftime("%Y-%m-%d %H:%M:%S")
-            except Exception:
-                time_iso = "1970-01-01 00:00:00"
-
-        # Ensure keys exist
-        side = str(t.get("side") or "UNKNOWN").upper()
-        if side not in ("BUY", "SELL", "UNKNOWN"):
-            side = "UNKNOWN"
-
-        try:
-            volume = float(t.get("volume", 0.0))
-        except Exception:
-            volume = 0.0
-
-        def fnum(x, default=0.0):
-            try:
-                return float(x)
-            except Exception:
-                return float(default)
-
-        net = fnum(t.get("net"), 0.0)
-        profit = fnum(t.get("profit"), 0.0)
-        commission = fnum(t.get("commission"), 0.0)
-        swap = fnum(t.get("swap"), 0.0)
-
-        position_id = t.get("position_id", 0)
-        order_id = t.get("order_id", t.get("order", 0))
-        try:
-            position_id = int(position_id)
-        except Exception:
-            position_id = 0
-        try:
-            order_id = int(order_id)
-        except Exception:
-            order_id = 0
-
-        symbol = str(t.get("symbol") or self.symbol)
-
-        return {
-            "type": "trade_close",
-            "symbol": symbol,
-            "deal_ticket": deal_ticket,
-            "position_id": position_id,
-            "order_id": order_id,
-            "time": int(time_sec),
-            "time_iso": str(time_iso),
-            "side": side,
-            "volume": float(volume),
-            "profit": profit,
-            "commission": commission,
-            "swap": swap,
-            "net": net,
-        }
-
-    def _load_stats(self) -> Dict[str, Any]:
-        if os.path.exists(self.stats_file):
-            try:
-                with open(self.stats_file, "r", encoding="utf-8") as f:
-                    data = json.load(f) or {}
-                if isinstance(data, dict):
-                    data.setdefault("processed_deal_tickets", [])
-                    data.setdefault("trades", [])
-
-                    # sanitize trades (remove bad/old schema rows)
-                    raw_trades = data.get("trades", [])
-                    cleaned: List[Dict[str, Any]] = []
-                    if isinstance(raw_trades, list):
-                        for t in raw_trades:
-                            nt = self._sanitize_trade(t)
-                            if nt is not None and str(nt.get("symbol")) == self.symbol:
-                                cleaned.append(nt)
-
-                    data["trades"] = cleaned
-
-                    # sanitize processed_deal_tickets
-                    p = data.get("processed_deal_tickets", [])
-                    if not isinstance(p, list):
-                        p = []
-                    pp = []
-                    for x in p:
-                        try:
-                            pp.append(int(x))
-                        except Exception:
-                            continue
-                    data["processed_deal_tickets"] = pp
-
-                    # Ensure required aggregate keys exist
-                    base = self._default_stats()
-                    for k, v in base.items():
-                        data.setdefault(k, v)
-
-                    # Align symbol/lookback
-                    data["symbol"] = self.symbol
-                    data["lookback_days"] = self.lookback_days
-
-                    # Save back if changed schema (safe)
-                    self.stats = data
-                    self._save_stats()
-                    return data
-            except Exception:
-                pass
-
-        return self._default_stats()
-
-    def _save_stats(self) -> None:
-        try:
-            with open(self.stats_file, "w", encoding="utf-8") as f:
-                json.dump(self.stats, f, ensure_ascii=False, indent=2)
-        except Exception:
+    def _init_signals_csv(self) -> None:
+        if os.path.exists(SIGNALS_CSV):
             return
+        with open(SIGNALS_CSV, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(
+                [
+                    "signal_id",
+                    "ts",
+                    "symbol",
+                    "mode",
+                    "tf_exec",
+                    "direction",
+                    "entry",
+                    "sl",
+                    "tp",
+                    "rr",
+                    "proximity_score",
+                    "blocked_by",
+                    "atr",
+                    "adx",
+                    "bb_width_atr",
+                    "rsi",
+                    "watch_state",
+                    "engine_version",
+                ]
+            )
 
-    def _ensure_mt5(self) -> bool:
-        if mt5.terminal_info() is not None:
-            return True
-        return bool(mt5.initialize())
+    def _init_trades_csv(self) -> None:
+        if os.path.exists(TRADES_CSV):
+            return
+        with open(TRADES_CSV, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(
+                [
+                    "signal_id",
+                    "ts_open",
+                    "ts_close",
+                    "symbol",
+                    "tf_exec",
+                    "direction",
+                    "entry",
+                    "sl",
+                    "tp",
+                    "rr_plan",
+                    "outcome",
+                    "r_result",
+                    "exit_price",
+                    "bars_to_close",
+                    "max_adverse",
+                    "max_favorable",
+                ]
+            )
 
-    def sync_trade_closes(self) -> List[Dict[str, Any]]:
-        """
-        Returns list of new close-deals (normalized dicts).
-        """
-        if not self._ensure_mt5():
+    def _read_csv_rows(self, path: str) -> List[Dict[str, str]]:
+        if not os.path.exists(path):
             return []
+        with open(path, "r", newline="", encoding="utf-8") as f:
+            r = csv.DictReader(f)
+            return [dict(row) for row in r]
 
-        from_date = datetime.now() - timedelta(days=self.lookback_days)
-        deals = mt5.history_deals_get(from_date, datetime.now())
-        if not deals:
-            self.stats["last_sync_iso"] = datetime.now().isoformat()
-            self._save_stats()
-            return []
+    def _append_signal_row(self, row: SignalRow) -> None:
+        with open(SIGNALS_CSV, "a", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(
+                [
+                    row.signal_id,
+                    row.ts,
+                    row.symbol,
+                    row.mode,
+                    row.tf_exec,
+                    row.direction,
+                    row.entry,
+                    row.sl,
+                    row.tp,
+                    row.rr,
+                    row.proximity_score,
+                    row.blocked_by,
+                    row.atr,
+                    row.adx,
+                    row.bb_width_atr,
+                    row.rsi,
+                    row.watch_state,
+                    row.engine_version,
+                ]
+            )
 
-        processed = set(self.stats.get("processed_deal_tickets", []))
-        new_closes: List[Dict[str, Any]] = []
+    def append_signal_from_engine_package(self, pkg: Dict[str, Any], tf_exec: str = "M5") -> Dict[str, Any]:
+        """
+        Accepts the payload from engine.generate_signal_package() (the "signal" object in /api/signal_preview).
+        Logs BOTH passed signals and blocked attempts (important for filter tuning).
+        """
+        ctx = (pkg.get("context") or {}) if isinstance(pkg, dict) else {}
+        symbol = str(pkg.get("symbol", "GOLD"))
+        mode = str(ctx.get("mode", "unknown"))
+        engine_version = str(ctx.get("engine_version", "unknown"))
+        direction = str(pkg.get("direction", "NONE"))
+        blocked_by = str(ctx.get("blocked_by") or "")
 
-        for d in deals:
-            if d.entry != mt5.DEAL_ENTRY_OUT:
-                continue
-            if str(d.symbol) != self.symbol:
-                continue
-            if int(d.ticket) in processed:
-                continue
+        # create deterministic-ish id
+        ts = _utc_now_ts()
+        signal_id = f"{symbol}-{ts}-{direction}"
 
-            profit = float(d.profit)
-            commission = float(getattr(d, "commission", 0.0))
-            swap = float(getattr(d, "swap", 0.0))
-            net = profit + commission + swap
+        entry = _safe_float(pkg.get("entry_candidate"), 0.0)
+        sl = _safe_float(pkg.get("stop_candidate"), 0.0)
+        tp = _safe_float(pkg.get("tp_candidate"), 0.0)
+        rr = _safe_float(pkg.get("rr"), 0.0)
+        proximity_score = _safe_float(pkg.get("score"), 0.0)
 
-            close_event = {
-                "type": "trade_close",
-                "symbol": self.symbol,
-                "deal_ticket": int(d.ticket),
-                "position_id": int(getattr(d, "position_id", 0)),
-                "order_id": int(getattr(d, "order", 0)),
-                "time": int(d.time),
-                "time_iso": datetime.fromtimestamp(int(d.time)).strftime("%Y-%m-%d %H:%M:%S"),
-                "side": "BUY" if d.type == mt5.DEAL_TYPE_BUY else "SELL",
-                "volume": float(d.volume),
-                "profit": profit,
-                "commission": commission,
-                "swap": swap,
-                "net": net,
-            }
+        atr = _safe_float(ctx.get("atr"), 0.0)
+        adx = _safe_float(ctx.get("adx"), float("nan"))
+        bb_width_atr = _safe_float(ctx.get("bb_width_atr"), float("nan"))
+        rsi = _safe_float(ctx.get("rsi"), float("nan"))
+        watch_state = str(ctx.get("watch_state", ""))
 
-            new_closes.append(close_event)
-            processed.add(int(d.ticket))
-            self.stats["processed_deal_tickets"].append(int(d.ticket))
-
-            self.stats["total_trades"] += 1
-            self.stats["net_profit"] = float(self.stats.get("net_profit", 0.0)) + net
-
-            if net > 0:
-                self.stats["winning_trades"] += 1
-                self.stats["gross_profit"] = float(self.stats.get("gross_profit", 0.0)) + net
-                self.stats["best_trade"] = max(float(self.stats.get("best_trade", 0.0)), net)
-            else:
-                self.stats["losing_trades"] += 1
-                self.stats["gross_loss"] = float(self.stats.get("gross_loss", 0.0)) + abs(net)
-                self.stats["worst_trade"] = min(float(self.stats.get("worst_trade", 0.0)), net)
-
-            self.stats["trades"].append(close_event)
-
-        self.stats["last_sync_iso"] = datetime.now().isoformat()
-        self._save_stats()
-        return new_closes
-
-    def summary(self) -> PerfSummary:
-        total = int(self.stats.get("total_trades", 0))
-        wins = int(self.stats.get("winning_trades", 0))
-        losses = int(self.stats.get("losing_trades", 0))
-        win_rate = (wins / total * 100.0) if total > 0 else 0.0
-
-        gross_profit = float(self.stats.get("gross_profit", 0.0))
-        gross_loss = float(self.stats.get("gross_loss", 0.0))
-        net_profit = float(self.stats.get("net_profit", 0.0))
-
-        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0.0)
-
-        return PerfSummary(
-            total_trades=total,
-            wins=wins,
-            losses=losses,
-            win_rate=win_rate,
-            net_profit=net_profit,
-            gross_profit=gross_profit,
-            gross_loss=gross_loss,
-            profit_factor=profit_factor,
-            best_trade=float(self.stats.get("best_trade", 0.0)),
-            worst_trade=float(self.stats.get("worst_trade", 0.0)),
+        row = SignalRow(
+            signal_id=signal_id,
+            ts=ts,
+            symbol=symbol,
+            mode=mode,
+            tf_exec=str(tf_exec),
+            direction=direction,
+            entry=entry,
+            sl=sl,
+            tp=tp,
+            rr=rr,
+            proximity_score=proximity_score,
+            blocked_by=blocked_by,
+            atr=atr,
+            adx=adx,
+            bb_width_atr=bb_width_atr,
+            rsi=rsi,
+            watch_state=watch_state,
+            engine_version=engine_version,
         )
+        self._append_signal_row(row)
+        return {"ok": True, "signal_id": signal_id}
+
+    def _resolved_signal_ids(self) -> set:
+        rows = self._read_csv_rows(TRADES_CSV)
+        return {r.get("signal_id", "") for r in rows if r.get("signal_id")}
+
+    def _load_unresolved_trade_candidates(self) -> List[Dict[str, str]]:
+        signals = self._read_csv_rows(SIGNALS_CSV)
+        resolved = self._resolved_signal_ids()
+
+        # resolve only actionable signals
+        out = []
+        for s in signals:
+            sid = s.get("signal_id", "")
+            if not sid or sid in resolved:
+                continue
+            if (s.get("direction") or "").upper() not in ("BUY", "SELL"):
+                continue
+            if (s.get("blocked_by") or ""):
+                # blocked attempts are logged for tuning, but not evaluated as trades
+                continue
+            out.append(s)
+        return out
+
+    def _fetch_rates_range(self, symbol: str, tf_exec: str, ts_from: int, ts_to: int) -> Optional[List[Dict[str, Any]]]:
+        _mt5_init_or_raise()
+        timeframe = _tf_from_str(tf_exec)
+
+        dt_from = _dt_utc_from_ts(ts_from)
+        dt_to = _dt_utc_from_ts(ts_to)
+
+        rates = mt5.copy_rates_range(symbol, timeframe, dt_from, dt_to)
+        if rates is None or len(rates) == 0:
+            return None
+
+        out: List[Dict[str, Any]] = []
+        for r in rates:
+            out.append(
+                {
+                    "time": int(r["time"]),
+                    "open": float(r["open"]),
+                    "high": float(r["high"]),
+                    "low": float(r["low"]),
+                    "close": float(r["close"]),
+                }
+            )
+        return out
+
+    def _evaluate_hit_first(
+        self,
+        direction: str,
+        entry: float,
+        sl: float,
+        tp: float,
+        bars: List[Dict[str, Any]],
+    ) -> Tuple[str, float, float, int, float, float]:
+        """
+        Determine which is hit first: TP or SL.
+        Conservative rule for ambiguous same-bar hits:
+        - BUY: if low <= SL and high >= TP on same bar => assume SL first (pessimistic)
+        - SELL: if high >= SL and low <= TP on same bar => assume SL first
+        Returns: outcome, r_result, exit_price, bars_to_close, max_adverse, max_favorable
+        """
+        d = direction.upper()
+        risk = abs(entry - sl)
+        if risk <= 1e-9:
+            return "invalid_risk", 0.0, entry, 0, 0.0, 0.0
+
+        max_fav = 0.0
+        max_adv = 0.0
+
+        for idx, b in enumerate(bars):
+            hi = float(b["high"])
+            lo = float(b["low"])
+
+            if d == "BUY":
+                # track MAE/MFE
+                fav = hi - entry
+                adv = entry - lo
+                max_fav = max(max_fav, fav)
+                max_adv = max(max_adv, adv)
+
+                sl_hit = lo <= sl
+                tp_hit = hi >= tp
+
+                if sl_hit and tp_hit:
+                    # pessimistic
+                    return "SL", -1.0, sl, idx + 1, max_adv, max_fav
+                if sl_hit:
+                    return "SL", -1.0, sl, idx + 1, max_adv, max_fav
+                if tp_hit:
+                    rr = (tp - entry) / risk
+                    return "TP", float(rr), tp, idx + 1, max_adv, max_fav
+
+            else:  # SELL
+                fav = entry - lo
+                adv = hi - entry
+                max_fav = max(max_fav, fav)
+                max_adv = max(max_adv, adv)
+
+                sl_hit = hi >= sl
+                tp_hit = lo <= tp
+
+                if sl_hit and tp_hit:
+                    return "SL", -1.0, sl, idx + 1, max_adv, max_fav
+                if sl_hit:
+                    return "SL", -1.0, sl, idx + 1, max_adv, max_fav
+                if tp_hit:
+                    rr = (entry - tp) / risk
+                    return "TP", float(rr), tp, idx + 1, max_adv, max_fav
+
+        return "OPEN", 0.0, entry, len(bars), max_adv, max_fav
+
+    def resolve_signals_to_trades(self, max_horizon_minutes: int = 360) -> Dict[str, Any]:
+        """
+        Convert unresolved actionable signals to resolved trades (if TP/SL hit).
+        Writes resolved trades to logs/trades.csv.
+        """
+        _ensure_dirs()
+        candidates = self._load_unresolved_trade_candidates()
+        if not candidates:
+            return {"ok": True, "resolved": 0, "note": "no_unresolved_candidates"}
+
+        now_ts = _utc_now_ts()
+        resolved_n = 0
+        with open(TRADES_CSV, "a", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+
+            for s in candidates:
+                sid = s["signal_id"]
+                symbol = s["symbol"]
+                tf_exec = s.get("tf_exec", "M5")
+                direction = (s.get("direction") or "").upper()
+
+                ts_open = _safe_int(s.get("ts"), 0)
+                if ts_open <= 0:
+                    continue
+
+                entry = _safe_float(s.get("entry"), 0.0)
+                sl = _safe_float(s.get("sl"), 0.0)
+                tp = _safe_float(s.get("tp"), 0.0)
+                rr_plan = _safe_float(s.get("rr"), 0.0)
+
+                # time window: from signal open to min(now, open + horizon)
+                ts_to = min(now_ts, ts_open + int(max_horizon_minutes) * 60)
+                if ts_to <= ts_open:
+                    continue
+
+                try:
+                    bars = self._fetch_rates_range(symbol, tf_exec, ts_open, ts_to)
+                except Exception:
+                    bars = None
+
+                if not bars or len(bars) < 2:
+                    continue
+
+                outcome, r_result, exit_price, bars_to_close, max_adv, max_fav = self._evaluate_hit_first(
+                    direction=direction,
+                    entry=entry,
+                    sl=sl,
+                    tp=tp,
+                    bars=bars,
+                )
+
+                if outcome == "OPEN":
+                    continue  # not resolved yet within horizon
+
+                ts_close = int(bars[min(bars_to_close - 1, len(bars) - 1)]["time"])
+                w.writerow(
+                    [
+                        sid,
+                        ts_open,
+                        ts_close,
+                        symbol,
+                        tf_exec,
+                        direction,
+                        entry,
+                        sl,
+                        tp,
+                        rr_plan,
+                        outcome,
+                        float(r_result),
+                        float(exit_price),
+                        int(bars_to_close),
+                        float(max_adv),
+                        float(max_fav),
+                    ]
+                )
+                resolved_n += 1
+
+        return {"ok": True, "resolved": resolved_n}
+
+    @staticmethod
+    def _equity_and_drawdown(r_list: List[float]) -> Tuple[List[float], float]:
+        eq = []
+        peak = 0.0
+        dd_max = 0.0
+        cur = 0.0
+        for r in r_list:
+            cur += float(r)
+            eq.append(cur)
+            peak = max(peak, cur)
+            dd = peak - cur
+            dd_max = max(dd_max, dd)
+        return eq, float(dd_max)
+
+    def compute_summary(self) -> Dict[str, Any]:
+        trades = self._read_csv_rows(TRADES_CSV)
+        if not trades:
+            summary = {
+                "ok": True,
+                "ready": False,
+                "reason": "no_trades_resolved_yet",
+                "trades": 0,
+                "winrate": None,
+                "avg_r": None,
+                "max_drawdown_r": None,
+                "ts": _utc_now_ts(),
+            }
+            with open(SUMMARY_JSON, "w", encoding="utf-8") as f:
+                json.dump(summary, f, indent=2)
+            return summary
+
+        r_results: List[float] = []
+        wins = 0
+        for t in trades:
+            outcome = (t.get("outcome") or "").upper()
+            r = _safe_float(t.get("r_result"), 0.0)
+            r_results.append(r)
+            if outcome == "TP" and r > 0:
+                wins += 1
+
+        n = len(r_results)
+        winrate = float(wins / n) if n > 0 else 0.0
+        avg_r = float(sum(r_results) / n) if n > 0 else 0.0
+        _, max_dd = self._equity_and_drawdown(r_results)
+
+        summary = {
+            "ok": True,
+            "ready": True,
+            "trades": n,
+            "wins": wins,
+            "winrate": winrate,
+            "avg_r": avg_r,
+            "max_drawdown_r": max_dd,
+            "ts": _utc_now_ts(),
+        }
+        with open(SUMMARY_JSON, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
+        return summary
+
+    def update_and_summarize(self, max_horizon_minutes: int = 360) -> Dict[str, Any]:
+        r1 = self.resolve_signals_to_trades(max_horizon_minutes=max_horizon_minutes)
+        s = self.compute_summary()
+        return {"ok": True, "resolved": r1.get("resolved", 0), "summary": s}
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--update", action="store_true", help="resolve signals to trades (TP/SL hit-first)")
+    p.add_argument("--summary", action="store_true", help="print summary")
+    p.add_argument("--horizon", type=int, default=360, help="max horizon minutes for resolution window")
+    args = p.parse_args()
+
+    tracker = PerformanceTracker()
+
+    if args.update:
+        res = tracker.update_and_summarize(max_horizon_minutes=int(args.horizon))
+        if args.summary:
+            print(json.dumps(res, indent=2))
+        else:
+            print(json.dumps(res, indent=2))
+        return
+
+    if args.summary:
+        s = tracker.compute_summary()
+        print(json.dumps(s, indent=2))
+        return
+
+    # default behavior
+    s = tracker.compute_summary()
+    print(json.dumps(s, indent=2))
+
+
+if __name__ == "__main__":
+    main()

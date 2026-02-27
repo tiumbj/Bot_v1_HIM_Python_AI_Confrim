@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "ready": false,
+  "reason": "no_trades_resolved_yet",
+  "trades": 0,
+  "winrate": null,
+  "avg_r": null,
+  "max_drawdown_r": null,
+  "ts": 1772181376
+}

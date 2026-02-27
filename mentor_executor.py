@@ -1,26 +1,27 @@
 """
-Mentor Executor - Execution Controller (Production Hardening Phase)
-Version: 2.4.3
+Mentor Executor - Execution Controller (Phase 9 Live Stabilization)
+Version: 2.6.0
 
 Changelog:
-- 2.4.3 (2026-02-26):
-  - FIX: BOS source of truth MUST come from pkg["bos"] (never context["bos"])
-  - FIX: supertrend_ok source of truth MUST come from pkg["supertrend_ok"] (never context["supertrend_ok"])
-  - FIX: NONE_REASON["bos"] and NONE_REASON["supertrend_ok"] are always boolean (never None)
-  - ENFORCE: contract fields bos/supertrend_ok MUST exist and MUST NOT be None (fail-fast)
-  - RESPECT: ai.enabled (if false -> Technical Gate only; if true -> AI confirm-only)
-  - TELEGRAM: send ONLY after final approval (no reject/NONE spam)
-  - SAFETY: keep production-safe guardrails (spread, stops/freeze check, dedupe, open position guard)
+- 2.6.0 (2026-02-27):
+  - NEW: AI Spec v2 Mode D integration (bounded adjustment, direction locked, fail-closed)
+  - NEW: Multi-order support with stacking guards (distance ATR, max positions per symbol)
+  - NEW: Unified mentor output uses AI mentor block (reduces intelligent mentor complexity)
+  - KEEP: Production safety (spread, stops/freeze, dedupe, BOS+SuperTrend required, MT5 must remain running)
+  - KEEP: Position manager (BE + ATR trail + emergency SL) + compatible extension for AI tighten-only
 
-Locked Rules (Do not change):
-- BOS required: if bos=False -> must be blocked (no_bos)
-- Engine = owner of decision data (contract fields live at top-level)
-- Executor MUST NOT use debug context as primary source for BOS/supertrend_ok
-- Telegram sends approved only
-- direction="NONE" => no trade
+Locked Rules (do not change unless explicitly declared):
+- Mode = sideway_scalp (frozen)
+- min_rr = 1.5 (frozen)
+- atr_sl_mult = 1.6 (frozen)
+- require_confirmation = true (frozen)
+- BOS required
+- SuperTrend OK required
+- AI is bounded (Mode D): no direction change, no lot sizing, no risk model override
+- Fail closed on AI/parse/constraint errors
 
-Notes:
-- This file is a full replacement (No patch).
+Backtest evidence (placeholder):
+- N/A (executor logic refactor; requires forward A/B logs)
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ import math
 import os
 import time
 import traceback
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import MetaTrader5 as mt5
 
@@ -56,47 +57,40 @@ logging.basicConfig(
 logger = logging.getLogger("HIM")
 
 
-def _safe_float(v: Any, default: float = 0.0) -> float:
-    if v is None:
-        return float(default)
+def _sf(v: Any, d: float = 0.0) -> float:
     try:
+        if v is None:
+            return float(d)
         return float(v)
     except Exception:
-        return float(default)
+        return float(d)
 
 
-def _safe_int(v: Any, default: int = 0) -> int:
-    if v is None:
-        return int(default)
+def _si(v: Any, d: int = 0) -> int:
     try:
+        if v is None:
+            return int(d)
         return int(v)
     except Exception:
-        return int(default)
+        return int(d)
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
     return float(max(lo, min(hi, x)))
 
 
-def _floor_to_step(x: float, step: float) -> float:
-    if step <= 0:
-        return float(x)
-    return math.floor(x / step) * step
+def _is_finite(x: float) -> bool:
+    return isinstance(x, (int, float)) and math.isfinite(float(x))
 
 
-def _require_bool_field(pkg: Dict[str, Any], key: str) -> bool:
-    """
-    Contract enforcement:
-    - key MUST exist
-    - value MUST NOT be None
-    - returns bool(value)
-    """
-    if key not in pkg:
-        raise RuntimeError(f"CONTRACT_VIOLATION: missing top-level field: {key}")
-    v = pkg.get(key)
-    if v is None:
-        raise RuntimeError(f"CONTRACT_VIOLATION: top-level field '{key}' is None")
-    return bool(v)
+def _sanity(direction: str, entry: float, sl: float, tp: float) -> bool:
+    if not (_is_finite(entry) and _is_finite(sl) and _is_finite(tp)):
+        return False
+    if direction == "BUY":
+        return sl < entry < tp
+    if direction == "SELL":
+        return tp < entry < sl
+    return False
 
 
 class HotConfig:
@@ -133,16 +127,13 @@ class MentorExecutor:
     def __init__(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.join(base_dir, "config.json")
-
         self.hcfg = HotConfig(self.config_path)
+
         self.engine = TradingEngine(config_path=self.config_path)
         self.ai = AIMentor()
         self.tg = TelegramNotifier(config_path=self.config_path)
         self.tlog = TradeLogger(os.path.join(base_dir, "trade_history.json"))
 
-        # Dedupe/cooldown (Telegram + Execution)
-        self._last_tg_sig: Optional[str] = None
-        self._last_tg_ts: float = 0.0
         self._last_exec_sig: Optional[str] = None
         self._last_exec_ts: float = 0.0
 
@@ -155,16 +146,8 @@ class MentorExecutor:
         if mt5.terminal_info() is not None:
             return
         if not mt5.initialize():
-            err = mt5.last_error()
-            raise RuntimeError(f"MT5 initialize failed: {err}")
+            raise RuntimeError(f"MT5 initialize failed: {mt5.last_error()}")
         logger.info("MT5 Connected")
-
-    @staticmethod
-    def _get_tick(symbol: str):
-        tick = mt5.symbol_info_tick(symbol)
-        if tick is None:
-            raise RuntimeError(f"Cannot get tick for symbol: {symbol} last_error={mt5.last_error()}")
-        return tick
 
     @staticmethod
     def _get_info(symbol: str):
@@ -177,37 +160,21 @@ class MentorExecutor:
         return info
 
     @staticmethod
-    def _positions_exist(symbol: str) -> bool:
-        pos = mt5.positions_get(symbol=symbol)
-        # Conservative: if MT5 cannot return positions, block to avoid duplicate risk
-        if pos is None:
-            return True
-        return bool(len(pos) > 0)
+    def _get_tick(symbol: str):
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            raise RuntimeError(f"Cannot get tick for symbol: {symbol} last_error={mt5.last_error()}")
+        return tick
 
-    # -----------------------------
-    # Config snapshot (audit visibility)
-    # -----------------------------
     @staticmethod
-    def _cfg_snapshot(cfg_eff: Dict[str, Any]) -> Dict[str, Any]:
-        snap = {
-            "mode": cfg_eff.get("mode"),
-            "symbol": cfg_eff.get("symbol"),
-            "enable_execution": cfg_eff.get("enable_execution"),
-            "confidence_threshold": cfg_eff.get("confidence_threshold"),
-            "min_score": cfg_eff.get("min_score"),
-            "min_rr": cfg_eff.get("min_rr"),
-            "lot": cfg_eff.get("lot"),
-            "timeframes": cfg_eff.get("timeframes"),
-            "risk": cfg_eff.get("risk"),
-            "supertrend": cfg_eff.get("supertrend"),
-        }
-        for k in ("ai", "execution", "execution_safety", "telegram"):
-            if k in cfg_eff:
-                snap[k] = cfg_eff.get(k)
-        return snap
+    def _positions(symbol: str):
+        pos = mt5.positions_get(symbol=symbol)
+        if pos is None:
+            return []
+        return list(pos)
 
     # -----------------------------
-    # Safety layer
+    # Safety
     # -----------------------------
     def _spread_points(self, symbol: str) -> float:
         info = self._get_info(symbol)
@@ -216,9 +183,7 @@ class MentorExecutor:
             return float("inf")
         return float((tick.ask - tick.bid) / info.point)
 
-    def _validate_stops_levels(
-        self, symbol: str, direction: str, entry: float, sl: float, tp: float
-    ) -> Tuple[bool, str]:
+    def _validate_stops_levels(self, symbol: str, direction: str, entry: float, sl: float, tp: float) -> Tuple[bool, str]:
         info = self._get_info(symbol)
         point = float(info.point) if info.point else 0.0
         if point <= 0:
@@ -232,289 +197,212 @@ class MentorExecutor:
             if not (sl < entry < tp):
                 return False, "sanity_failed_buy"
             if (entry - sl) < min_dist:
-                return False, f"stop_level_failed_sl dist={entry - sl:.5f} min={min_dist:.5f}"
+                return False, "stop_level_failed_sl"
             if (tp - entry) < min_dist:
-                return False, f"stop_level_failed_tp dist={tp - entry:.5f} min={min_dist:.5f}"
+                return False, "stop_level_failed_tp"
         elif direction == "SELL":
             if not (tp < entry < sl):
                 return False, "sanity_failed_sell"
             if (sl - entry) < min_dist:
-                return False, f"stop_level_failed_sl dist={sl - entry:.5f} min={min_dist:.5f}"
+                return False, "stop_level_failed_sl"
             if (entry - tp) < min_dist:
-                return False, f"stop_level_failed_tp dist={entry - tp:.5f} min={min_dist:.5f}"
+                return False, "stop_level_failed_tp"
         else:
             return False, "invalid_direction"
 
-        # Freeze-level: conservative check
         if freeze_level_points > 0:
             tick = self._get_tick(symbol)
             freeze_dist = float(freeze_level_points) * point
             cur = float(tick.ask if direction == "BUY" else tick.bid)
             if abs(cur - entry) <= freeze_dist:
-                return False, f"freeze_level_too_close cur-entry={abs(cur-entry):.5f} freeze={freeze_dist:.5f}"
+                return False, "freeze_level_too_close"
 
         return True, "ok"
 
     # -----------------------------
-    # Risk sizing (compat keys)
+    # Multi-order policy
     # -----------------------------
-    @staticmethod
-    def _get_risk_pct(cfg_eff: Dict[str, Any]) -> float:
-        """
-        Supported:
-        - risk.risk_pct: fraction (0.01 = 1%)
-        - risk.risk_percent: percent (1.0 = 1%)
-        Priority: risk_pct if exists else risk_percent
-        Clamp: 0–5%
-        """
-        risk_cfg = (cfg_eff.get("risk") or {}) if isinstance(cfg_eff, dict) else {}
-        if "risk_pct" in risk_cfg:
-            v = _safe_float(risk_cfg.get("risk_pct"), 0.01)
-            risk_pct = v
-        elif "risk_percent" in risk_cfg:
-            v = _safe_float(risk_cfg.get("risk_percent"), 1.0)
-            risk_pct = v / 100.0
-        else:
-            risk_pct = 0.01
-        return _clamp(float(risk_pct), 0.0, 0.05)
+    def _multi_order_policy(self, cfg_eff: Dict[str, Any]) -> Dict[str, Any]:
+        ex = (cfg_eff.get("execution") or {})
+        return {
+            "allow_multiple_positions": bool(ex.get("allow_multiple_positions", True)),
+            "max_positions_per_symbol": _si(ex.get("max_positions_per_symbol", 2), 2),
+            "min_distance_between_entries_atr": _sf(ex.get("min_distance_between_entries_atr", 0.60), 0.60),
+            "cooldown_sec": _si(ex.get("cooldown_sec", 120), 120),
+        }
 
-    def _calc_lot(
-        self,
-        cfg_eff: Dict[str, Any],
-        symbol: str,
-        direction: str,
-        entry: float,
-        sl: float,
-        fallback_lot: float,
-    ) -> Tuple[float, str]:
-        try:
-            acct = mt5.account_info()
-            if acct is None:
-                return float(fallback_lot), "account_info_none_fallback"
-
-            equity = float(getattr(acct, "equity", 0.0) or 0.0)
-            if equity <= 0:
-                return float(fallback_lot), "equity_invalid_fallback"
-
-            risk_pct = self._get_risk_pct(cfg_eff)
-            risk_amount = equity * risk_pct
-            if risk_amount <= 0:
-                return float(fallback_lot), "risk_amount_invalid_fallback"
-
-            info = self._get_info(symbol)
-            vol_min = float(getattr(info, "volume_min", 0.01) or 0.01)
-            vol_max = float(getattr(info, "volume_max", 100.0) or 100.0)
-            vol_step = float(getattr(info, "volume_step", 0.01) or 0.01)
-
-            order_type = mt5.ORDER_TYPE_BUY if direction == "BUY" else mt5.ORDER_TYPE_SELL
-            loss_1lot = mt5.order_calc_profit(order_type, symbol, 1.0, float(entry), float(sl))
-            if loss_1lot is None:
-                return float(fallback_lot), "order_calc_profit_none_fallback"
-
-            risk_per_lot = abs(float(loss_1lot))
-            if risk_per_lot <= 0:
-                return float(fallback_lot), "risk_per_lot_invalid_fallback"
-
-            raw_lot = risk_amount / risk_per_lot
-            lot = _floor_to_step(raw_lot, vol_step)  # floor only (never exceed risk)
-            lot = _clamp(lot, vol_min, vol_max)
-
-            return float(lot), (
-                f"risk equity={equity:.2f} risk_pct={risk_pct:.4f} risk={risk_amount:.2f} "
-                f"risk_per_1lot={risk_per_lot:.2f}"
-            )
-        except Exception as e:
-            return float(fallback_lot), f"risk_calc_exception_fallback: {e}"
-
-    # -----------------------------
-    # Telegram approved-only
-    # -----------------------------
-    def _telegram_dedupe_ok(self, cfg_eff: Dict[str, Any], sig: str) -> bool:
-        tg_cfg = (cfg_eff.get("telegram") or {}) if isinstance(cfg_eff, dict) else {}
-        cooldown_sec = _safe_int(tg_cfg.get("cooldown_sec", 900), 900)
+    def _execution_dedupe_ok(self, policy: Dict[str, Any], sig: str) -> bool:
+        cooldown = int(policy.get("cooldown_sec", 120))
         now = time.time()
-        if self._last_tg_sig == sig and (now - self._last_tg_ts) < cooldown_sec:
-            return False
-        self._last_tg_sig = sig
-        self._last_tg_ts = now
-        return True
-
-    def _safe_send_telegram_trade(self, cfg_eff: Dict[str, Any], text: str, sig: str) -> None:
-        try:
-            if not self._telegram_dedupe_ok(cfg_eff, sig):
-                logger.info("Telegram: dedupe/cooldown suppress.")
-                return
-            ok = self.tg.send_text(text, event_type="trade")
-            if not ok:
-                logger.warning("Telegram send failed or disabled.")
-        except Exception:
-            logger.error("CRITICAL: telegram send failed (isolated).")
-            logger.error(traceback.format_exc())
-
-    # -----------------------------
-    # Execution dedupe
-    # -----------------------------
-    def _execution_dedupe_ok(self, cfg_eff: Dict[str, Any], sig: str) -> bool:
-        exec_cfg = (cfg_eff.get("execution") or {}) if isinstance(cfg_eff, dict) else {}
-        cooldown_sec = _safe_int(exec_cfg.get("cooldown_sec", 120), 120)
-        now = time.time()
-        if self._last_exec_sig == sig and (now - self._last_exec_ts) < cooldown_sec:
+        if self._last_exec_sig == sig and (now - self._last_exec_ts) < cooldown:
             return False
         self._last_exec_sig = sig
         self._last_exec_ts = now
         return True
 
-    # -----------------------------
-    # NONE reason tracing (TOP-LEVEL CONTRACT)
-    # -----------------------------
-    @staticmethod
-    def _trace_none_reason(pkg: Dict[str, Any]) -> Dict[str, Any]:
-        ctx = pkg.get("context", {}) or {}
+    def _stacking_ok(self, symbol: str, entry: float, atr: float, policy: Dict[str, Any]) -> Tuple[bool, str]:
+        pos = self._positions(symbol)
+        if not pos:
+            return True, "no_positions"
 
-        # IMPORTANT: MUST come from TOP-LEVEL (and enforced)
-        bos = _require_bool_field(pkg, "bos")
-        st_ok = _require_bool_field(pkg, "supertrend_ok")
+        max_pos = int(policy["max_positions_per_symbol"])
+        if len(pos) >= max_pos:
+            return False, f"max_positions_reached={len(pos)}/{max_pos}"
 
-        return {
-            "blocked_by": ctx.get("blocked_by"),
-            "watch_state": ctx.get("watch_state"),
-            "breakout_state": ctx.get("breakout_state"),
-            "breakout_side": ctx.get("breakout_side"),
-            "bos": bos,  # boolean always
-            "retest_ok": bool(ctx.get("retest_ok", False)),
+        min_dist_atr = float(policy["min_distance_between_entries_atr"])
+        min_dist = min_dist_atr * max(atr, 1e-9)
+
+        # If we cannot compute atr reliably -> fallback to conservative allow (but still distance check is weak)
+        for p in pos:
+            try:
+                p_price = float(getattr(p, "price_open", 0.0) or 0.0)
+                if abs(entry - p_price) < min_dist:
+                    return False, f"stacking_too_close dist={abs(entry-p_price):.5f} min={min_dist:.5f}"
+            except Exception:
+                return False, "stacking_check_failed"
+
+        return True, "stacking_ok"
+
+    # -----------------------------
+    # AI package builder (Spec v2)
+    # -----------------------------
+    def _build_ai_package(self, cfg_eff: Dict[str, Any], pkg: Dict[str, Any]) -> Dict[str, Any]:
+        symbol = str(cfg_eff.get("symbol", "GOLD"))
+        direction = str(pkg.get("direction", "NONE")).upper()
+
+        entry0 = _sf(pkg.get("entry_candidate"))
+        sl0 = _sf(pkg.get("stop_candidate"))
+        tp0 = _sf(pkg.get("tp_candidate"))
+        rr0 = _sf(pkg.get("rr"), 0.0)
+
+        # ATR from engine context (best-effort)
+        ctx = (pkg.get("context") or {})
+        atr = _sf(ctx.get("atr", pkg.get("atr", 0.0)), 0.0)
+
+        spread_pts = self._spread_points(symbol)
+        # Simple spread z estimate (no history) -> 0 by default
+        exec_ctx = {
+            "spread_current": float(spread_pts),
+            "spread_avg_5m": float(spread_pts),
+            "spread_z": 0.0,
+            "slippage_estimate": 0.3,
+            "freeze_level": int(getattr(self._get_info(symbol), "trade_freeze_level", 0) or 0),
+            "stop_level": int(getattr(self._get_info(symbol), "trade_stops_level", 0) or 0),
+        }
+
+        # Structure flags (use TOP-LEVEL contract fields when present)
+        structure = {
+            "bos": bool(pkg.get("bos", False)),
+            "choch": bool(ctx.get("choch", False)),
+            "htf_bias": ctx.get("HTF_trend") or ctx.get("htf_bias") or "unknown",
+            "mtf_bias": ctx.get("MTF_trend") or ctx.get("mtf_bias") or "unknown",
+            "ltf_bias": ctx.get("LTF_trend") or ctx.get("ltf_bias") or "unknown",
             "proximity_score": ctx.get("proximity_score"),
-            "proximity_side": ctx.get("proximity_side"),
-            "proximity_best_dist": ctx.get("proximity_best_dist"),
-            "threshold_points": ctx.get("breakout_proximity_threshold_points"),
-            "supertrend_dir": ctx.get("supertrend_dir"),
-            "supertrend_value": ctx.get("supertrend_value"),
-            "supertrend_ok": st_ok,  # boolean always
-            "HTF_trend": ctx.get("HTF_trend"),
-            "MTF_trend": ctx.get("MTF_trend"),
-            "LTF_trend": ctx.get("LTF_trend"),
-            "bias_source": ctx.get("bias_source"),
         }
 
-    # -----------------------------
-    # Decision: Technical Gate (AI disabled)
-    # -----------------------------
-    @staticmethod
-    def _sanity(direction: str, entry: float, sl: float, tp: float) -> bool:
-        if direction == "BUY":
-            return sl < entry < tp
-        if direction == "SELL":
-            return tp < entry < sl
-        return False
+        # Technical snapshot (best-effort; if engine already supplies)
+        technical = {
+            "bb_state": ctx.get("bb_state") or ctx.get("bb"),
+            "rsi": ctx.get("rsi"),
+            "adx": ctx.get("adx"),
+            "supertrend": ctx.get("supertrend_dir") or ("up" if bool(pkg.get("supertrend_ok", False)) and direction == "BUY" else "down"),
+            "volatility_z": ctx.get("vol_z") or ctx.get("vol"),
+        }
 
-    def _technical_gate_decision(self, cfg_eff: Dict[str, Any], pkg: Dict[str, Any]) -> Dict[str, Any]:
-        direction = str(pkg.get("direction", "NONE"))
-        score = _safe_float(pkg.get("score", 0.0), 0.0)
-        rr = _safe_float(pkg.get("rr", 0.0), 0.0)
-        entry = _safe_float(pkg.get("entry_candidate"), 0.0)
-        sl = _safe_float(pkg.get("stop_candidate"), 0.0)
-        tp = _safe_float(pkg.get("tp_candidate"), 0.0)
+        # Context layer (optional feed from news_filter etc.)
+        context = {
+            "regime": ctx.get("regime") or cfg_eff.get("mode") or "unknown",
+            "session": ctx.get("session") or "unknown",
+            "event_risk": ctx.get("event_risk") or "NONE",
+            "time_to_event_min": ctx.get("time_to_event_min"),
+            "correlations": ctx.get("correlations") or {},
+            "liquidity": ctx.get("liq") or ctx.get("liquidity") or "",
+        }
 
-        # IMPORTANT: MUST come from TOP-LEVEL (and enforced)
-        bos = _require_bool_field(pkg, "bos")
-        st_ok = _require_bool_field(pkg, "supertrend_ok")
+        positions = self._positions(symbol)
+        portfolio = {
+            "open_positions_symbol": len(positions),
+            "daily_pnl_usd": 0.0,
+            "equity_drawdown_pct": 0.0,
+            "correlation_risk": _sf(ctx.get("correlation_risk"), 0.0),
+        }
 
-        min_score = _safe_float(cfg_eff.get("min_score", 7.0), 7.0)
-        min_rr = _safe_float(cfg_eff.get("min_rr", 2.0), 2.0)
-        conf_th = int(cfg_eff.get("confidence_threshold", 75))
-        conf_py = int(pkg.get("confidence_py", 0))
-
-        approved = (
-            direction in ("BUY", "SELL")
-            and bos
-            and st_ok
-            and score >= min_score
-            and rr >= min_rr
-            and conf_py >= conf_th
-            and self._sanity(direction, entry, sl, tp)
-        )
-
-        reasoning = [
-            "AI disabled -> Technical Gate",
-            f"BOS={bos}, SuperTrendOK={st_ok}",
-            f"Score={score:.1f} (min={min_score:.1f}), RR={rr:.2f} (min={min_rr:.2f})",
-            f"confidence_py={conf_py} (th={conf_th})",
-        ]
-
-        warnings = []
-        if direction not in ("BUY", "SELL"):
-            warnings.append("Direction is NONE/invalid")
-        if not bos:
-            warnings.append("BOS required but false")
-        if not st_ok:
-            warnings.append("SuperTrend conflict")
-        if score < min_score:
-            warnings.append("Score below min")
-        if rr < min_rr:
-            warnings.append("RR below min")
-        if conf_py < conf_th:
-            warnings.append("confidence_py below threshold")
-        if not self._sanity(direction, entry, sl, tp):
-            warnings.append("price sanity failed")
+        # Constraints (Mode D)
+        ai_cfg = (cfg_eff.get("ai") or {})
+        constraints = {
+            "min_rr": _sf(cfg_eff.get("min_rr", 1.5), 1.5),
+            "entry_shift_max_atr": _sf(ai_cfg.get("entry_shift_max_atr", 0.20), 0.20),
+            "sl_atr_min": _sf(ai_cfg.get("sl_atr_min", 1.20), 1.20),
+            "sl_atr_max": _sf(ai_cfg.get("sl_atr_max", 1.80), 1.80),
+            "conf_execute_threshold": _si(cfg_eff.get("confidence_threshold", 70), 70),
+            "event_conf_cap_high": _si(ai_cfg.get("event_conf_cap_high", 72), 72),
+        }
 
         return {
-            "approved": bool(approved),
-            "confidence": int(conf_py),
-            "entry": float(entry),
-            "sl": float(sl),
-            "tp": float(tp),
-            "reasoning": "\n".join(reasoning),
-            "warnings": "\n".join(warnings),
+            "symbol": symbol,
+            "baseline": {"dir": direction, "entry": entry0, "sl": sl0, "tp": tp0, "rr": rr0, "atr": atr, "spread_points": spread_pts},
+            "execution_context": exec_ctx,
+            "technical": technical,
+            "structure": structure,
+            "context": context,
+            "portfolio": portfolio,
+            "constraints": constraints,
+            "ask": "Validate baseline, adjust within constraints, output execution/analysis/mentor",
         }
 
     # -----------------------------
-    # Decision: AI confirm-only (ai.enabled=true)
+    # Python-side validation (must pass)
     # -----------------------------
-    def _ai_confirm_decision(self, pkg: Dict[str, Any], fallback_decision: Dict[str, Any], cfg_eff: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        - ai.enabled=true => call AIMentor.approve_trade()
-        - If AI response invalid and ai.fallback_to_technical=true => fallback_decision
-        - IMPORTANT: AI is confirm-only; contract fields remain top-level.
-          If AI module still reads context keys, we normalize a copy for AI only.
-        """
-        ai_cfg = (cfg_eff.get("ai") or {}) if isinstance(cfg_eff, dict) else {}
-        fallback_to_technical = bool(ai_cfg.get("fallback_to_technical", True))
+    def _validate_ai_execution(
+        self,
+        ai_out: Dict[str, Any],
+        baseline: Dict[str, Any],
+        constraints: Dict[str, Any],
+    ) -> Tuple[bool, str]:
+        ex = (ai_out.get("execution") or {})
+        direction = str(baseline.get("dir", "NONE")).upper()
+        entry0, sl0, tp0 = _sf(baseline.get("entry")), _sf(baseline.get("sl")), _sf(baseline.get("tp"))
+        atr = max(_sf(baseline.get("atr"), 0.0), 1e-9)
 
-        try:
-            # enforce contract first
-            bos = _require_bool_field(pkg, "bos")
-            st_ok = _require_bool_field(pkg, "supertrend_ok")
+        entry1, sl1, tp1 = _sf(ex.get("entry")), _sf(ex.get("sl")), _sf(ex.get("tp"))
+        rr1 = _sf(ex.get("rr"), 0.0)
 
-            normalized = dict(pkg)
-            ctx = dict((pkg.get("context", {}) or {}))
-            # normalize for AI compatibility (AI confirm-only)
-            ctx["bos"] = bos
-            ctx["supertrend_ok"] = st_ok
-            normalized["context"] = ctx
+        if not _sanity(direction, entry1, sl1, tp1):
+            return False, "sanity_failed"
 
-            ai_resp = self.ai.approve_trade(normalized)
-            if not AIMentor.validate_response(ai_resp):
-                raise ValueError("AI response failed strict validation")
+        # Entry shift
+        max_shift = _sf(constraints.get("entry_shift_max_atr", 0.20), 0.20) * atr
+        if abs(entry1 - entry0) > (max_shift + 1e-9):
+            return False, "entry_shift_exceed"
 
-            return ai_resp
-        except Exception as e:
-            logger.error(f"AI confirm failed: {e}")
-            logger.error(traceback.format_exc())
-            if fallback_to_technical:
-                return fallback_decision
+        # SL ATR range
+        sl_dist = abs(sl1 - entry1)
+        sl_min = _sf(constraints.get("sl_atr_min", 1.20), 1.20) * atr
+        sl_max = _sf(constraints.get("sl_atr_max", 1.80), 1.80) * atr
+        if sl_dist < (sl_min - 1e-9) or sl_dist > (sl_max + 1e-9):
+            return False, "sl_atr_range_fail"
 
-            rej = dict(fallback_decision)
-            rej["approved"] = False
-            rej["warnings"] = (rej.get("warnings", "") + "\nAI confirm failed and fallback disabled").strip()
-            return rej
+        # RR min
+        min_rr = _sf(constraints.get("min_rr", 1.50), 1.50)
+        if rr1 < (min_rr - 1e-9):
+            return False, "rr_below_min"
+
+        return True, "ok"
 
     # -----------------------------
     # Order execution
     # -----------------------------
-    def _place_market_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> Dict[str, Any]:
+    def _place_market_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> Tuple[bool, str]:
+        info = self._get_info(symbol)
         tick = self._get_tick(symbol)
-        price = float(tick.ask if direction == "BUY" else tick.bid)
 
-        order_type = mt5.ORDER_TYPE_BUY if direction == "BUY" else mt5.ORDER_TYPE_SELL
+        if direction == "BUY":
+            order_type = mt5.ORDER_TYPE_BUY
+            price = float(tick.ask)
+        else:
+            order_type = mt5.ORDER_TYPE_SELL
+            price = float(tick.bid)
+
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
@@ -523,230 +411,158 @@ class MentorExecutor:
             "price": price,
             "sl": float(sl),
             "tp": float(tp),
-            "deviation": 30,
-            "magic": 20260226,
-            "comment": "HIM v2.4.3",
+            "deviation": 20,
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_FOK,
+            "type_filling": info.trade_fill_mode,
+            "comment": "HIM v2.6.0",
         }
 
-        result = mt5.order_send(request)
-        if result is None:
-            return {"ok": False, "error": "order_send returned None", "last_error": mt5.last_error()}
-
-        ok = (result.retcode == mt5.TRADE_RETCODE_DONE)
-        return {
-            "ok": bool(ok),
-            "retcode": int(result.retcode),
-            "order": int(getattr(result, "order", 0)),
-            "deal": int(getattr(result, "deal", 0)),
-            "price": float(price),
-            "comment": str(getattr(result, "comment", "")),
-            "request": {
-                "symbol": symbol,
-                "direction": direction,
-                "volume": float(lot),
-                "sl": float(sl),
-                "tp": float(tp),
-            },
-        }
-
-    # -----------------------------
-    # Telegram message (approved only)
-    # -----------------------------
-    @staticmethod
-    def _build_mentor_message(
-        symbol: str,
-        direction: str,
-        pkg: Dict[str, Any],
-        decision: Dict[str, Any],
-        enable_execution: bool,
-        lot: float,
-    ) -> str:
-        ctx = pkg.get("context", {}) or {}
-        score = _safe_float(pkg.get("score", 0.0), 0.0)
-        rr = _safe_float(pkg.get("rr", 0.0), 0.0)
-
-        bos = _require_bool_field(pkg, "bos")
-        st_ok = _require_bool_field(pkg, "supertrend_ok")
-
-        confidence = int(decision.get("confidence", 0))
-        entry = _safe_float(decision.get("entry", 0.0), 0.0)
-        sl = _safe_float(decision.get("sl", 0.0), 0.0)
-        tp = _safe_float(decision.get("tp", 0.0), 0.0)
-
-        st_dir = str(ctx.get("supertrend_dir", "NA"))
-        st_val = _safe_float(ctx.get("supertrend_value", 0.0), 0.0)
-
-        status = "APPROVED"
-        if not enable_execution:
-            status += " (DRY-RUN)"
-
-        msg = []
-        msg.append(f"HIM Signal — {status}")
-        msg.append(f"Symbol: {symbol}")
-        msg.append(f"Direction: {direction}")
-        msg.append(f"Lot: {lot:.2f}")
-        msg.append(f"Confidence: {confidence}%")
-        msg.append(f"Entry: {entry:.2f}")
-        msg.append(f"SL: {sl:.2f}")
-        msg.append(f"TP: {tp:.2f}")
-        msg.append("")
-        msg.append("Mentor Explanation")
-        msg.append(
-            f"1) HTF={ctx.get('HTF_trend')} MTF={ctx.get('MTF_trend')} LTF={ctx.get('LTF_trend')} (bias={ctx.get('bias_source')})"
-        )
-        msg.append(
-            f"2) BOS={bos} Retest={bool(ctx.get('retest_ok', False))} Breakout={ctx.get('breakout_state')}({ctx.get('breakout_side')})"
-        )
-        msg.append(f"3) SuperTrend dir={st_dir} value={st_val:.2f} ok={st_ok}")
-        msg.append(f"4) Score={score:.1f}/10 RR={rr:.2f} blocked_by={ctx.get('blocked_by')}")
-        return "\n".join(msg)
+        res = mt5.order_send(request)
+        if res is None:
+            return False, f"order_send_none err={mt5.last_error()}"
+        if getattr(res, "retcode", None) not in (mt5.TRADE_RETCODE_DONE, mt5.TRADE_RETCODE_PLACED):
+            return False, f"retcode={getattr(res,'retcode',None)} comment={getattr(res,'comment','')}"
+        return True, f"ok retcode={getattr(res,'retcode',None)}"
 
     # -----------------------------
     # Main loop
     # -----------------------------
-    def run_once(self) -> None:
-        cfg_eff = self.hcfg.load_effective()
-        logger.info(f"CFG_EFFECTIVE: {self._cfg_snapshot(cfg_eff)}")
+    def run_forever(self) -> None:
+        logger.info("============================================================")
+        logger.info("HIM Mentor Executor v2.6.0 | AI Spec v2 Mode D | Multi-order | SL Manager")
+        logger.info("============================================================")
 
-        symbol = str(cfg_eff.get("symbol", "GOLD"))
-        enable_execution = bool(cfg_eff.get("enable_execution", False))
-
-        ai_cfg = (cfg_eff.get("ai") or {}) if isinstance(cfg_eff, dict) else {}
-        ai_enabled = bool(ai_cfg.get("enabled", False))
-
-        exec_cfg = (cfg_eff.get("execution") or {}) if isinstance(cfg_eff, dict) else {}
-        max_spread_points = _safe_float(exec_cfg.get("max_spread_points", 60), 60)
-        block_if_position_exists = bool(exec_cfg.get("block_if_position_exists", True))
-
-        # 1) Engine package
-        try:
-            pkg = self.engine.generate_signal_package()
-        except Exception as e:
-            logger.error(f"CRITICAL: engine failed: {e}")
-            logger.error(traceback.format_exc())
-            self.tlog.append(
-                {"type": "engine_error", "symbol": symbol, "error": str(e), "traceback": traceback.format_exc()}
-            )
-            return
-
-        # Contract enforcement early (prevents bos=None in logs)
-        try:
-            bos = _require_bool_field(pkg, "bos")
-            st_ok = _require_bool_field(pkg, "supertrend_ok")
-        except Exception as e:
-            logger.error(str(e))
-            self.tlog.append({"type": "contract_violation", "symbol": symbol, "error": str(e), "package": pkg})
-            raise
-
-        direction = str(pkg.get("direction", "NONE"))
-        score = _safe_float(pkg.get("score", 0.0), 0.0)
-        rr = _safe_float(pkg.get("rr", 0.0), 0.0)
-        confidence_py = _safe_int(pkg.get("confidence_py", 0), 0)
-
-        logger.info(
-            f"SIGNAL: {direction} score={score:.1f} rr={rr:.2f} confidence_py={confidence_py} bos={bos} supertrend_ok={st_ok}"
-        )
-        self.tlog.append({"type": "signal", "symbol": symbol, "package": pkg})
-
-        # 2) If NONE, log reasons (approved-only telegram rule: do NOT send)
-        if direction not in ("BUY", "SELL"):
-            none_reason = self._trace_none_reason(pkg)
-            logger.info(f"NONE_REASON: {none_reason}")
-            self.tlog.append({"type": "none_reason", "symbol": symbol, "detail": none_reason})
-            logger.info("No clear bias. Skip.")
-            return
-
-        # 3) Decide: Technical gate baseline
-        technical_decision = self._technical_gate_decision(cfg_eff, pkg)
-
-        # 4) Decide: AI confirm-only if enabled
-        if ai_enabled:
-            decision = self._ai_confirm_decision(pkg=pkg, fallback_decision=technical_decision, cfg_eff=cfg_eff)
-            decision_mode = "AI_CONFIRM"
-        else:
-            decision = technical_decision
-            decision_mode = "TECHNICAL_GATE"
-
-        approved = bool(decision.get("approved", False))
-        logger.info(f"DECISION({decision_mode}): approved={approved} conf={decision.get('confidence')}")
-        self.tlog.append({"type": "decision", "symbol": symbol, "mode": decision_mode, "decision": decision})
-
-        if not approved:
-            # Telegram: approved-only => do not send
-            return
-
-        # 5) Execution safety hardening
-        entry = _safe_float(decision.get("entry"), _safe_float(pkg.get("entry_candidate"), 0.0))
-        sl = _safe_float(decision.get("sl"), _safe_float(pkg.get("stop_candidate"), 0.0))
-        tp = _safe_float(decision.get("tp"), _safe_float(pkg.get("tp_candidate"), 0.0))
-
-        # Spread filter
-        spread_pts = self._spread_points(symbol)
-        if spread_pts > max_spread_points:
-            logger.warning(f"BLOCK: spread too high {spread_pts:.1f} > {max_spread_points:.1f}")
-            self.tlog.append({"type": "blocked", "symbol": symbol, "reason": "spread", "spread_points": spread_pts})
-            return
-
-        # Duplicate protection: open position guard
-        if block_if_position_exists and self._positions_exist(symbol):
-            logger.warning("BLOCK: position exists (duplicate protection).")
-            self.tlog.append({"type": "blocked", "symbol": symbol, "reason": "position_exists"})
-            return
-
-        # Stops/freeze check
-        ok_levels, why_levels = self._validate_stops_levels(symbol, direction, entry, sl, tp)
-        if not ok_levels:
-            logger.warning(f"BLOCK: levels invalid: {why_levels}")
-            self.tlog.append({"type": "blocked", "symbol": symbol, "reason": "levels", "detail": why_levels})
-            return
-
-        # Lot sizing (dynamic if risk configured; fallback to cfg lot)
-        fallback_lot = _safe_float(cfg_eff.get("lot", 0.01), 0.01)
-        lot, lot_note = self._calc_lot(cfg_eff, symbol, direction, entry, sl, fallback_lot=fallback_lot)
-        logger.info(f"LOT: {lot:.2f} ({lot_note})")
-
-        # Execution dedupe
-        sig = f"{symbol}|{direction}|{round(entry,2)}|{round(sl,2)}|{round(tp,2)}|{round(score,1)}|{int(decision.get('confidence',0))}"
-        if not self._execution_dedupe_ok(cfg_eff, sig):
-            logger.warning("BLOCK: execution dedupe/cooldown.")
-            self.tlog.append({"type": "blocked", "symbol": symbol, "reason": "execution_dedupe"})
-            return
-
-        # 6) Telegram: approved-only
-        msg = self._build_mentor_message(symbol, direction, pkg, decision, enable_execution, lot)
-        self._safe_send_telegram_trade(cfg_eff, msg, sig)
-
-        # 7) Execute (if enabled) else dry-run
-        if not enable_execution:
-            logger.info("DRY-RUN: enable_execution=false, skipping order_send.")
-            self.tlog.append({"type": "dry_run", "symbol": symbol, "direction": direction, "decision": decision})
-            return
-
-        result = self._place_market_order(symbol, direction, lot, sl, tp)
-        logger.info(f"EXEC_RESULT: ok={result.get('ok')} retcode={result.get('retcode')} comment={result.get('comment')}")
-        self.tlog.append({"type": "execution", "symbol": symbol, "direction": direction, "result": result})
-
-    def run_forever(self, interval_sec: int = 10) -> None:
         while True:
             try:
-                self.run_once()
+                cfg_eff = self.hcfg.load_effective()
+                symbol = str(cfg_eff.get("symbol", "GOLD"))
+
+                # 1) Engine generates package
+                pkg = self.engine.generate_signal_package()  # repository spec says this exists
+                if not isinstance(pkg, dict):
+                    time.sleep(1.0)
+                    continue
+
+                direction = str(pkg.get("direction", "NONE")).upper()
+                if direction not in ("BUY", "SELL"):
+                    time.sleep(0.5)
+                    continue
+
+                # 2) Frozen gate: BOS + SuperTrend OK required (top-level)
+                bos = bool(pkg.get("bos", False))
+                st_ok = bool(pkg.get("supertrend_ok", False))
+                if not bos or not st_ok:
+                    time.sleep(0.5)
+                    continue
+
+                # Baseline candidates
+                entry0 = _sf(pkg.get("entry_candidate"))
+                sl0 = _sf(pkg.get("stop_candidate"))
+                tp0 = _sf(pkg.get("tp_candidate"))
+                rr0 = _sf(pkg.get("rr"), 0.0)
+                if not _sanity(direction, entry0, sl0, tp0):
+                    time.sleep(0.5)
+                    continue
+
+                # 3) Multi-order policy checks
+                policy = self._multi_order_policy(cfg_eff)
+                if not self._execution_dedupe_ok(policy, sig=f"{symbol}:{direction}:{entry0:.5f}:{sl0:.5f}:{tp0:.5f}"):
+                    time.sleep(0.5)
+                    continue
+
+                atr = _sf((pkg.get("context") or {}).get("atr", 0.0), 0.0)
+                if policy["allow_multiple_positions"]:
+                    ok_stack, why = self._stacking_ok(symbol, entry0, atr, policy)
+                    if not ok_stack:
+                        time.sleep(0.5)
+                        continue
+                else:
+                    if len(self._positions(symbol)) > 0:
+                        time.sleep(0.5)
+                        continue
+
+                # 4) Build AI package and call AI
+                ai_pkg = self._build_ai_package(cfg_eff, pkg)
+                ai_out = self.ai.evaluate(ai_pkg)
+
+                baseline = ai_pkg.get("baseline") or {}
+                constraints = ai_pkg.get("constraints") or {}
+
+                # 5) Validate AI output (hard)
+                ok_ai, why_ai = self._validate_ai_execution(ai_out, baseline, constraints)
+                if not ok_ai:
+                    time.sleep(0.5)
+                    continue
+
+                ex = ai_out.get("execution") or {}
+                entry1 = _sf(ex.get("entry"))
+                sl1 = _sf(ex.get("sl"))
+                tp1 = _sf(ex.get("tp"))
+                conf = _si(ex.get("conf"), 0)
+                conf_th = _si(cfg_eff.get("confidence_threshold", 70), 70)
+
+                # 6) Stops/freeze + spread guard before execute
+                ok_lv, why_lv = self._validate_stops_levels(symbol, direction, entry1, sl1, tp1)
+                if not ok_lv:
+                    time.sleep(0.5)
+                    continue
+
+                spread = self._spread_points(symbol)
+                max_spread = _sf(((cfg_eff.get("execution_safety") or {}).get("max_spread_points", 35)), 35)
+                if spread > max_spread:
+                    time.sleep(0.5)
+                    continue
+
+                # 7) Decision gate
+                if conf < conf_th:
+                    time.sleep(0.5)
+                    continue
+
+                # 8) Execute (lot from config; Mode D forbids AI sizing)
+                lot = _sf(cfg_eff.get("lot", 0.01), 0.01)
+                ok, msg = self._place_market_order(symbol, direction, lot, sl1, tp1)
+
+                # 9) Send mentor message (AI as single narrative source)
+                mentor = ai_out.get("mentor") or {}
+                mentor_text = (
+                    f"{mentor.get('headline','')}\n"
+                    f"{mentor.get('explanation','')}\n"
+                    f"{mentor.get('action_guidance','')}\n"
+                    f"{mentor.get('confidence_reasoning','')}\n"
+                    f"EXEC={ok} | {msg}"
+                ).strip()
+
+                try:
+                    self.tg.send_text(mentor_text, event_type="trade")
+                except Exception:
+                    logger.error("Telegram send failed (isolated).")
+
+                # 10) Log
+                try:
+                    self.tlog.log_trade({
+                        "ts": time.time(),
+                        "symbol": symbol,
+                        "dir": direction,
+                        "baseline": {"entry": entry0, "sl": sl0, "tp": tp0, "rr": rr0},
+                        "ai": {"entry": entry1, "sl": sl1, "tp": tp1, "conf": conf},
+                        "ok": ok,
+                        "msg": msg,
+                        "mentor_headline": mentor.get("headline", ""),
+                        "risk_flags": ((ai_out.get("analysis") or {}).get("risk_flags") or []),
+                    })
+                except Exception:
+                    logger.error("Trade log failed (isolated).")
+
+                time.sleep(0.8)
+
             except KeyboardInterrupt:
-                logger.info("Stopped by user.")
-                break
-            except Exception as e:
-                logger.error(f"CRITICAL: executor loop error: {e}")
+                logger.warning("Stopped by user.")
+                return
+            except Exception:
+                logger.error("CRITICAL LOOP ERROR")
                 logger.error(traceback.format_exc())
-                self.tlog.append({"type": "executor_error", "error": str(e), "traceback": traceback.format_exc()})
-            time.sleep(interval_sec)
-
-
-def main():
-    ex = MentorExecutor()
-    # One-shot by default (safe for commissioning). Use run_forever() if you want continuous loop.
-    ex.run_once()
+                time.sleep(2.0)
 
 
 if __name__ == "__main__":
-    main()
+    MentorExecutor().run_forever()

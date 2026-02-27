@@ -1,0 +1,358 @@
+State Diagram.txt
+
+Hybrid Intelligence Mentor (HIM) — Project System State Overview
+Current Engine Version: 2.10.5
+Primary Mode: sideway_scalp (M5 Execution)
+Repository: https://github.com/tiumbj/Hybrid_Intelligence_Mentor
+
+1️⃣ PROJECT FILE STRUCTURE (Current Architecture)
+Hybrid_Intelligence_Mentor/
+│
+├── engine.py
+├── api_server.py
+├── config.json
+├── config_resolver.py
+├── dashboard.html
+│
+├── logs/                     (future trade log storage)
+├── research/                 (future backtest modules)
+└── README.md
+2️⃣ FILE-BY-FILE STATE + FUNCTION + STATUS
+🔵 engine.py
+
+STATE: ✅ DONE (v2.10.5 Stable Production)
+
+Main Function
+
+Core Trading Logic Engine
+
+Generate signal package
+
+Calculate SL / TP / RR
+
+Apply regime filter
+
+Apply proximity scoring
+
+Execute soft/hard trigger logic
+
+Technical Indicators Used
+
+ATR (SL calculation)
+
+ADX (sideway regime detection)
+
+Bollinger Bands (mean reversion boundary)
+
+RSI (confirmation)
+
+SuperTrend (trend context)
+
+Structure detection (HH/HL logic)
+
+Proximity scoring (distance normalization)
+
+Current Key Config Values
+mode: sideway_scalp
+min_rr: 1.5
+atr_period: 14
+atr_sl_mult: 1.6
+adx_max: 22
+bb_width_atr_max: 6
+near_trigger_atr: 1.0
+rsi_soft_band: 18
+proximity_score_min: 0.70
+require_confirmation: true
+Why These Numbers
+
+1.5 RR → Balanced for M5 mean reversion
+
+ATR 1.6 → Avoid tight SL noise
+
+ADX 22 → Below trending threshold
+
+BB width filter → Avoid breakout volatility
+
+Soft RSI band 18 → Prevent over-strict filtering
+
+proximity_score_min 0.70 → Quality gate for soft-zone
+
+Dependency
+
+Requires:
+
+config.json
+
+MT5 connection
+
+config_resolver.py
+
+🔵 api_server.py
+
+STATE: ✅ DONE (v1.5.2)
+
+Main Function
+
+REST API interface
+
+Serve /api/signal_preview
+
+Serve /api/status
+
+Apply mode presets
+
+Load config patch
+
+MT5 snapshot
+
+Major Fix Done
+
+Removed engine instance caching
+
+Always create fresh engine per request
+
+Dependency
+
+Requires:
+
+engine.py
+
+config.json
+
+MetaTrader5
+
+Flask
+
+🔵 config.json
+
+STATE: 🟡 IN PROGRESS (Live Tunable)
+
+Purpose
+
+Runtime strategy parameters
+
+Active Mode
+
+sideway_scalp
+
+Critical Sections
+
+risk
+
+sideway_scalp
+
+timeframes
+
+supertrend
+
+Risk Section
+atr_period: 14
+atr_sl_mult: 1.6
+min_rr: 1.5
+Sideway Logic
+adx_max: 22
+bb_width_atr_max: 6
+near_trigger_atr: 1.0
+rsi_soft_band: 18
+proximity_score_min: 0.70
+require_confirmation: true
+Why In Progress
+
+Needs statistical validation tuning.
+
+🔵 config_resolver.py
+
+STATE: ✅ DONE
+
+Function
+
+Resolve effective config
+
+Merge preset + runtime patch
+
+Ensure backward compatibility
+
+Dependency: config.json
+
+🟡 dashboard.html
+
+STATE: IN PROGRESS
+
+Function
+
+UI monitoring
+
+Signal
+
+RR
+
+Proximity
+
+MT5 status
+
+Needs:
+
+Performance integration
+
+⏳ logs/trades.csv
+
+STATE: PENDING
+
+Purpose
+
+Statistical validation
+
+Winrate
+
+Avg R
+
+Drawdown
+
+Dependency:
+engine.py must execute real trade logging.
+
+⏳ research/backtest_engine.py
+
+STATE: PENDING
+
+Purpose
+
+Offline statistical validation
+
+Monte Carlo
+
+Regime analysis
+
+False signal frequency
+
+Dependency:
+Stable engine logic first (completed).
+
+3️⃣ SYSTEM STATE FLOW (Conceptual State Diagram – Text Form)
+[*] 
+  --> Config Loaded
+        --> Engine Initialized
+              --> MT5 Connected
+                    --> Regime Check
+                          --> Sideway Condition?
+                                --> No → Block (not_sideway)
+                                --> Yes
+                                      --> Trigger Zone Check
+                                            --> Outside Zone → WAIT
+                                            --> In Soft Zone
+                                                  --> Proximity Score >= 0.70 ?
+                                                        --> No → WATCH_PROXIMITY
+                                                        --> Yes
+                                                              --> Confirmation OK?
+                                                                    --> No → WATCH_PROXIMITY
+                                                                    --> Yes
+                                                                          --> Calculate SL
+                                                                          --> Calculate TP
+                                                                          --> RR >= 1.5 ?
+                                                                                --> No → BLOCK rr_too_low
+                                                                                --> Yes → SIGNAL GENERATED
+4️⃣ DEPENDENCY GRAPH (Logical)
+config.json
+   ↓
+config_resolver.py
+   ↓
+engine.py
+   ↓
+api_server.py
+   ↓
+dashboard.html
+
+engine.py
+   ↓
+MT5
+
+engine.py
+   ↓
+logs/trades.csv (future)
+5️⃣ CURRENT SYSTEM HEALTH
+Component	Status	Risk Level
+Engine core logic	Stable	Low
+API stability	Stable	Low
+Regime filter	Active	Medium
+Statistical validation	Not started	High
+Live trade logging	Not implemented	High
+6️⃣ WHAT HAS BEEN COMPLETED
+
+Proximity scoring system
+
+Soft trigger logic
+
+Quality gate (proximity_score_min)
+
+Adaptive RSI band
+
+ATR-based dynamic SL
+
+RR enforcement
+
+API cache bug fix
+
+Engine version consistency
+
+7️⃣ WHAT IS CURRENTLY HAPPENING
+
+System now:
+
+Generates real BUY/SELL signals
+
+Applies RR filter
+
+Applies proximity score filter
+
+Not silent
+
+Not over-triggering
+
+8️⃣ WHAT IS NEXT (Priority Order)
+
+Implement trade logging (CSV)
+
+Collect 50–100 real signals
+
+Calculate:
+
+Winrate
+
+Avg R
+
+Drawdown
+
+Adjust:
+
+proximity_score_min (0.70 → 0.75 if noisy)
+
+near_trigger_atr (1.0 → 0.9 if too frequent)
+
+9️⃣ FINAL PROJECT STATE SUMMARY
+
+Engine Version: 2.10.5
+Mode: sideway_scalp
+Execution TF: M5
+Regime: ADX + BB width normalized by ATR
+Quality Control: Proximity Score Gate (>= 0.70)
+Risk Model: ATR * 1.6 SL, RR 1.5 TP
+Confirmation: RSI + Reversal Required
+API: Stateless Engine Instantiation (No Cache)
+
+🔟 READY FOR HANDOFF STATUS
+
+Another developer can immediately:
+
+Clone repo
+
+Run API
+
+Enable MT5
+
+Start collecting signal data
+
+Begin statistical validation phase
+
+System is architecturally stable and production-ready for validation phase.
+
+END OF STATE DIAGRAM.txt
