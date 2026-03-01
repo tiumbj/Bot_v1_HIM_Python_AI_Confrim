@@ -1,0 +1,383 @@
+STATE DIAGRAM (DETAIL WORDING) — Hybrid Intelligence Mentor (HIM)
+File: State Diagram.txt
+Version: v3.2.0 (detail wording / non-Mermaid)
+Date: 2026-03-01 (Asia/Bangkok)  | Updated: LIVE confirm gate + Dashboard UX + Telegram status
+
+===============================================================================
+A) PROJECT PURPOSE (ภาพรวม)
+===============================================================================
+HIM คือระบบเทรดแบบ Hybrid:
+1) Engine (Python) คิดแผนเทรดแบบ deterministic: structure/entry/sl/tp/rr/confidence
+2) AI เป็นชั้น “confirm-only” (ไม่ตัดสินแทนระบบ) เพื่อเพิ่มความแม่นยำ/ลด noise
+3) Validator เป็น gate แบบ fail-closed (ไม่ผ่าน = ห้าม execute)
+4) MT5 execution ทำงานอัตโนมัติเมื่อ enable_execution=true
+5) Intelligent Dashboard ใช้ “ปรับ config + แสดงข้อมูลช่วยตัดสินใจ manual” โดย auto bot ยัง run ต่อ
+
+จุดเน้น: Production-grade, deterministic, guarded, audit-friendly.
+
+
+===============================================================================
+A1) LATEST COMMISSIONING UPDATE (สำคัญจากบทสนทนาล่าสุด)
+===============================================================================
+- เพิ่ม “LIVE Safety Gate” ทั้งฝั่ง API และ UX:
+  - POST /api/config เพื่อเปิด execution ต้องส่ง:
+    { "enable_execution": true, "confirm_live": "CONFIRM LIVE" }
+  - ถ้าขาด confirm_live => API ต้องตอบกลับ error:
+    confirm_live_required (fail-closed)
+  - /api/status ต้องสะท้อนสถานะเป็น field เดียว:
+    config.execution_mode = "LIVE" | "DRY_RUN"
+- ปัญหาเดิม: เปิด LIVE แล้ว Dashboard ไม่เปลี่ยน
+  - Root cause: server instance/route/config resolve ไม่สอดคล้อง ทำให้ /api/status แสดงค่า null/ไม่อัปเดต
+  - Commissioning pass เมื่อ /api/status คืนค่า config จริง:
+    confidence_threshold=65, min_score=6, min_rr=1.9, lot=0.01, mode=breakout, enable_execution=true/false
+- UX issue ที่ต้องแก้ต่อ:
+  - Manual Mode popup ใหญ่ + ปุ่ม Save กดยาก + font ตัวเลขเล็ก
+  - ต้องปรับ modal ให้เล็กลง, footer ปุ่มเป็น sticky, เพิ่มขนาด font editor
+- เพิ่ม requirement ใหม่:
+  - แสดง Telegram status บน Dashboard (config.telegram.enabled)
+
+===============================================================================
+B) HIGH-LEVEL STATES (STATE FLOW แบบคำอธิบาย)
+===============================================================================
+[START]
+  -> (S0) Boot & Config Load
+  -> (S1) Data Acquire (MT5 rates/ticks + optional news web status)
+  -> (S2) Indicators Compute (ATR/ADX/BBWidth + structure states)
+  -> (S3) Signal Build (Entry/SL/TP/RR + scoring)
+  -> (S4) AI Confirm (schema v1.0)
+  -> (S5) Validator Gate (v1.0 fail-closed)
+  -> (S6) Execution Router
+       -> (S6a) DRY_RUN (no execute) OR
+       -> (S6b) LIVE (send order to MT5)
+  -> (S7) Logging/Tracking (trade logs + performance)
+  -> (S8) Dashboard UX (manual decision view + mode/config control)
+[END loop] -> กลับไป S1 ตามรอบเวลา
+
+หมายเหตุสำคัญ:
+- “Manual trading” ใช้ Mentor Message (Trader View) เพื่อช่วยตัดสินใจ “ซื้อ/ขายเอง”
+  โดยไม่ปิด auto bot
+- Dashboard เป็น UX layer: ไม่ทำให้ validator ถูก bypass
+
+
+===============================================================================
+B1) CURRENT CONFIG BASELINE (ค่าปัจจุบัน + เหตุผล)
+===============================================================================
+(อ้างอิงจาก config.json ที่แสดงบน Dashboard/ /api/status ล่าสุด)
+
+Execution / Mode:
+- symbol = "GOLD"  (สัญลักษณ์ใน MT5 ของผู้ใช้)
+- mode = "breakout"  (preset ปัจจุบัน)
+- enable_execution = true/false  (สลับ DRY_RUN/LIVE)
+- execution_mode = "DRY_RUN" หรือ "LIVE" (ควรใช้ field นี้ใน UI)
+
+Risk / Threshold (Breakout preset):
+- confidence_threshold = 65
+  เหตุผล: threshold กลาง ๆ ลด false signal แต่ไม่เข้มเกินไปสำหรับ breakout
+- min_score = 6
+  เหตุผล: คุมคุณภาพสัญญาณ (คะแนนต่ำกว่านี้ถือว่า noise มาก)
+- min_rr = 1.9
+  เหตุผล: บังคับ RR เกือบ 2:1 เพื่อชดเชย win-rate ที่อาจแกว่งช่วง breakout
+- lot = 0.01
+  เหตุผล: lot เริ่มต้นเล็กเพื่อ commissioning/ลด risk ระหว่างปรับระบบ
+
+Indicators parameters (ค่า default ที่เห็นใน manual editor):
+- adx_period = 14, adx_max = 35
+  เหตุผล: 14 เป็นค่า market standard; adx_max ใช้คุม “แรงเกิน/สวิงสูง” ในบางโหมด
+- bb_period = 20, bb_std = 2, bb_width_atr_max = 6
+  เหตุผล: BB(20,2) เป็นค่า standard; width/ATR ใช้คุมสภาวะ volatility
+- rsi_period = 14, rsi_overbought = 70, rsi_oversold = 30, rsi_soft_band = 25
+  เหตุผล: RSI(14) standard; soft_band ใช้กรองสัญญาณใกล้ขอบแบบไม่แข็งเกิน
+- supertrend.period = 10, supertrend.mult = 3
+  เหตุผล: set มาตรฐานเพื่อช่วยทิศทาง (directional filter)
+- structure_sensitivity: htf=5, mtf=4, ltf=3
+  เหตุผล: HTF เข้มกว่าเพื่อกัน noise; LTF ต่ำกว่ารับการเข้าเร็ว
+- timeframes: htf="H1", mtf="M15", ltf="M5"
+  เหตุผล: โครง MTF มาตรฐานของระบบนี้ (bias จาก H1, setup จาก M15, entry จาก M5)
+
+Telegram:
+- telegram.enabled = false (ปัจจุบัน)
+  เหตุผล: ปิดระหว่าง commissioning หรือเปิดเฉพาะ notify เมื่อระบบ stable
+
+===============================================================================
+C) TECHNICAL INDICATORS & TOOLS ที่ใช้
+===============================================================================
+Indicators (ใช้ใน engine/filters):
+- ATR (Average True Range): วัด volatility, ใช้เป็นหน่วยระยะ SL/TP, proximity, buffers
+- ADX: วัดความแข็งแรงของแนวโน้ม (trend strength), ใช้ filter/โหมด
+- Bollinger Band Width (BBWidth): วัดการขยายตัวของความผันผวน
+- Market Structure (HH/HL, LH/LL): ระบุ trend
+- BOS/CHoCH: สัญญาณยืนยัน/เตือนการเปลี่ยนโครงสร้าง
+Tools/Infra:
+- MetaTrader5 (mt5): ดึงข้อมูลราคา/ส่งคำสั่ง
+- Flask API server: /api/...
+- Dashboard HTML/JS: UI ควบคุม/มอนิเตอร์
+- GitHub repo: versioning + handoff
+- Validator v1.0: schema checking + constraint enforcement
+- (Web direct) External status: OpenAI status + reachability checks (UX)
+
+===============================================================================
+D) CONFIG CONTROL (สำคัญมาก)
+===============================================================================
+“Source of truth” = config.json
+การเปลี่ยน config ทำได้ 2 วิธี:
+1) Dashboard Mode Buttons -> POST /api/config (ส่ง patch) -> merge update -> save config.json
+2) Dashboard Manual Mode Editor -> โหลด config.json -> edit -> save -> POST /api/config
+
+Key config fields ที่ Dashboard ต้องเห็นเป็น “ตัวเลข” (ไม่เป็น null):
+- mode
+- confidence_threshold
+- min_score
+- min_rr
+- lot (หรือ execution.volume)
+- enable_execution (DRY_RUN/LIVE)
+
+สถานะล่าสุดจาก /api/status:
+- MT5 account OK: login=168021026, server=XMGlobal-MT5 2, positions_count=0
+- config numbers ยังเป็น null (confidence_threshold/min_score/min_rr/lot/mode)
+  สาเหตุเชิงระบบ:
+  - resolve_effective_config() ไม่เติม default หรือ
+  - config.json ไม่มี keys ที่ endpoint คาดหวังในระดับ top-level
+  ผลกระทบ:
+  - Dashboard แสดง '-' หรือ null
+  - Mode preset/Manual editor ควรเขียนค่าพวกนี้เข้า config.json ให้ชัดเจน
+
+งานต่อไปที่จำเป็น:
+- ทำให้ resolve_effective_config() คืนค่า default เสมอ (กัน null)
+- หรือปรับ api_server/status mapping ให้รองรับโครงสร้าง config.json จริง (nested keys)
+
+===============================================================================
+E) FILE INVENTORY (โครงสร้างไฟล์ + หน้าที่ + สถานะ + config ที่เกี่ยวข้อง)
+===============================================================================
+หมายเหตุ: รายการไฟล์ยึดจาก git ls-files ที่เคยแสดงในโปรเจกต์ + ไฟล์ที่อัปเดตล่าสุดในบทสนทนา
+
+Legend:
+✅ Done = ใช้งานได้/ผ่าน commissioning
+🟡 In Progress = ทำงานได้บางส่วน/ยัง placeholder
+⏳ Pending = ยังไม่เริ่ม/ยังไม่ integrate
+🔴 Issues = มีบั๊ก/ต้องแก้เร่งด่วน
+
+------------------------------------------------------------------------------
+E1) Root / Orchestration Layer
+------------------------------------------------------------------------------
+
+1) mentor_executor.py
+- หน้าที่หลัก: Runner หลักของระบบเทรด (loop/receive signal/build order/call AI/validate/execute)
+- ใช้: MT5, engine.py, ai_bridge_v1.py, validator_v1_0.py, telegram_notifier.py (ถ้าเปิด)
+- Config ที่เกี่ยวข้อง: symbol, enable_execution, mode, risk params, lot, thresholds
+- สถานะ: ✅ Done (ระบบหลัก run ได้)
+- หมายเหตุ: Auto execution guarded; AI confirm-only
+
+2) commissioning_runner.py (ถ้ามีใน repo)
+- หน้าที่หลัก: commissioning / replay validation เพื่อทดสอบ pipeline เมื่อ tick stale
+- Config: tick_max_age_sec, min_rr
+- สถานะ: ✅ Done (แก้ RR floating precision ด้วย epsilon แล้ว)
+
+3) check_env.py / test_apis.py / test_ai_api.py / mt5_tester.py
+- หน้าที่หลัก: ตรวจ environment, ทดสอบ API/MT5
+- สถานะ: ✅ Done (เป็นเครื่องมือช่วย)
+
+------------------------------------------------------------------------------
+E2) Core Engine Layer
+------------------------------------------------------------------------------
+
+4) engine.py (+ engine_old1.py, engine_old2.py, engine.py.final_backup)
+- หน้าที่หลัก: คิดแผนเทรด deterministic:
+  - structure state (HTF/MTF/LTF)
+  - breakout/proximity
+  - entry/sl/tp/rr
+  - scoring
+- Indicators: ATR/ADX/BBWidth + structure/BOS/CHoCH
+- Config: mode profiles, thresholds, risk settings
+- สถานะ: ✅ Done (มีเวอร์ชันสำรองหลายชุด)
+- Issues: 🔴 (เฉพาะเชิง “จัดระเบียบ” เวอร์ชันสำรอง/cleanup ไม่ใช่ logic fail)
+
+5) strategy_profiles.py
+- หน้าที่หลัก: นิยาม mode profiles (precision/balanced/frequent/continuation ฯลฯ)
+- Config: mapping mode -> thresholds, min_rr, min_score, confidence_threshold
+- สถานะ: 🟡 In Progress
+- เหตุผล: Dashboard v3 มี preset แต่ยังต้อง lock ให้ตรงกับ profiles ตัวจริง (single source)
+
+------------------------------------------------------------------------------
+E3) AI Layer + Schema Boundary
+------------------------------------------------------------------------------
+
+6) ai_mentor.py
+- หน้าที่หลัก: AI reasoning/decision framework (confirm-only)
+- input: ai_pkg baseline + constraints + context
+- output: execution proposal + mentor message
+- สถานะ: ✅ Done (ใช้ใน /api/ai_confirm)
+
+7) ai_bridge_v1.py
+- หน้าที่หลัก: client/bridge ส่ง payload ไป AI endpoint ให้ compact ลด token
+- Config: ai.api_url, timeout
+- สถานะ: ✅ Done
+
+8) validator_v1_0.py
+- หน้าที่หลัก: gate แบบ deterministic (schema v1.0 + constraints)
+- ตรวจ: direction/entry/sl/tp, tighten-only, RR floor, shifts, missing fields
+- สถานะ: ✅ Done (ผ่าน commissioning)
+
+------------------------------------------------------------------------------
+E4) API Server + Dashboard UX
+------------------------------------------------------------------------------
+
+9) api_server.py
+- หน้าที่หลัก: Flask server เสิร์ฟ dashboard + API
+  - GET / -> dashboard.html (แก้ 404 แล้ว)
+  - GET/POST /api/config (merge update)
+  - GET /api/status (ส่ง MT5 account)
+  - GET /api/performance (daily report fallback)
+  - GET /api/signal_preview (ยัง placeholder)
+  - POST /api/ai_confirm (schema v1.0)
+- สถานะ: ✅ Done (สำคัญมาก: serve / + merge config)
+- Current numbers:
+  - /api/status shows MT5 OK and account_login=168021026
+  - config numbers return null (ต้องแก้ resolve/default/mapping)
+- Why null:
+  - resolve_effective_config ไม่คืน default หรือ config.json ไม่มี keys ที่ endpoint mapping
+
+10) intelligent_dashboard.py / dashboard.py / templates/dashboard.html / dashboard.html
+- หน้าที่หลัก: UI แสดงสถานะ + manual decision support + mode/config controls
+- ฟีเจอร์ที่ implement ล่าสุด (Dashboard v3):
+  - แสดง MT5 account number
+  - Win/Loss + daily report
+  - External status (web direct): OpenAI status + news reachability
+  - Manual config editor (แก้ JSON แล้ว save ผ่าน /api/config)
+  - Mode presets -> update real config numbers
+  - Trader View (ข้อความสั้น อ่านง่าย)
+  - Technical View (JSON)
+- สถานะ: ✅ Done (UI layer พร้อมใช้งาน)
+- Issues: 🟡 In Progress (เชิง integration)
+  - /api/signal_preview ยัง placeholder -> Trader View ยังไม่เต็มคุณภาพจนกว่าจะเชื่อม engine snapshot
+  - /api/performance ถ้าอยากแม่น ต้องเชื่อม performance_tracker จริง
+
+------------------------------------------------------------------------------
+E5) News / Filters (ถ้ามี)
+------------------------------------------------------------------------------
+
+11) news_filter.py / news_api_test.py / test_news*.py / mock_news.json
+- หน้าที่หลัก: ทดลอง news ingestion/filtering
+- สถานะ: 🟡 In Progress / ⏳ Pending
+- หมายเหตุ: สำหรับ “Dashboard external status” ล่าสุดตั้งใจไม่ใช้โมดูล news ในระบบ (web direct)
+
+------------------------------------------------------------------------------
+E6) Telegram / Notifications
+------------------------------------------------------------------------------
+
+12) telegram_notifier.py / ai_confirmation_telegram.py / trade_close_monitor.py / trade_logger.py
+- หน้าที่หลัก:
+  - telegram_notifier: ส่งข้อความแจ้งเตือน
+  - ai_confirmation_telegram: ยืนยัน/ส่งผล AI ผ่าน telegram
+  - trade_close_monitor: monitor ปิดออเดอร์
+  - trade_logger: บันทึกการเทรด
+- สถานะ: 🟡 In Progress
+- เหตุผล: ต้องจัดรูปแบบข้อความ Mentor ให้สั้น อ่านง่าย (manual decision support) ให้คงเส้นคงวาในทุก channel
+
+------------------------------------------------------------------------------
+E7) Performance & Tracking
+------------------------------------------------------------------------------
+
+13) performance_tracker.py
+- หน้าที่หลัก: สรุปผล Win/Loss, daily P/L, net, stats
+- API use: /api/performance
+- สถานะ: 🟡 In Progress
+- เหตุผล: API server มี fallback 0; ต้อง integrate tracker จริงเพื่อให้ daily report ถูกต้อง
+
+------------------------------------------------------------------------------
+E8) Docs / Runbooks / State diagrams
+------------------------------------------------------------------------------
+
+14) README_TH.md / Run procedure.html / instructions.*
+- หน้าที่หลัก: วิธีติดตั้ง/รัน/กฎการใช้งาน
+- สถานะ: 🟡 In Progress (ควรอัปเดตตาม Dashboard v3 + api_server root serve)
+
+15) stateDiagram-v2.txt ... stateDiagram-v16.txt
+- หน้าที่หลัก: สะท้อน progression ของระบบ (สถาปัตย์/ขั้นตอน)
+- สถานะ: ✅ Done (เป็นเอกสารวิวัฒนาการ)
+- หมายเหตุ: v16 คือรุ่นล่าสุดที่ควรอ่านเพื่อเข้าใจ progression/ลำดับงาน
+
+===============================================================================
+F) DEPENDENCY GRAPH (Dependency แบบคำอธิบาย)
+===============================================================================
+(1) config.json + config_resolver.py
+    -> ใช้โดยทุกส่วน (engine, api_server, mentor_executor, dashboard)
+
+(2) engine.py
+    -> ต้องพร้อมก่อน (ai_bridge_v1, validator_v1_0, mentor_executor) เพราะสร้าง baseline order
+
+(3) ai_mentor.py + ai_bridge_v1.py
+    -> ต้องพร้อมก่อนให้ /api/ai_confirm ทำงานสมบูรณ์
+
+(4) validator_v1_0.py
+    -> ต้องพร้อมก่อน execution ทุกกรณี (fail-closed gate)
+
+(5) api_server.py
+    -> ต้องพร้อมก่อน dashboard/UI และ AI confirm endpoint
+
+(6) dashboard.html + intelligent_dashboard.py
+    -> ต้องพร้อมก่อน “operator/manual trader” ใช้งานจริง
+
+(7) performance_tracker.py
+    -> ต้องพร้อมก่อน daily report เป็นข้อมูลจริง (ไม่ใช่ 0)
+
+(8) telegram_notifier.py
+    -> ขึ้นกับ mentor message formatting + trade_logger/performance
+
+===============================================================================
+G) CURRENT PRIORITY (NEXT TASKS ที่แนะนำให้ทีมทำต่อ)
+===============================================================================
+P0 (เร่งด่วน / แก้ null):
+1) FIX resolve_effective_config() / mapping ให้ /api/status คืน “ตัวเลข config” ไม่เป็น null
+   - ต้องทำให้ค่าเหล่านี้เป็น default หรือ map จาก nested structure ใน config.json
+   - เหตุผล: Dashboard Mode/Manual ใช้ตัวเลขพวกนี้เป็นแกนหลัก
+
+P1 (เพิ่มคุณค่ากับ manual trader):
+2) เชื่อม /api/signal_preview ให้คืน engine snapshot จริง:
+   - direction, entry, sl, tp, rr, score, confidence, trend(HTF/MTF/LTF), BOS/CHoCH states
+   - เพื่อให้ Trader View เป็น “decision support” ที่สมบูรณ์ (สั้นแต่ครบ)
+
+P2 (reporting):
+3) ทำ performance_tracker ให้คืน daily report จริง (wins/losses/net) ให้ /api/performance
+
+P3 (documentation/progression):
+4) อ่าน stateDiagram-v16.txt ใน repo แล้ว synchronize กับเอกสาร run procedure + README_TH.md
+   - เพื่อ handoff ให้นักพัฒนาคนอื่นต่อได้ทันที
+
+===============================================================================
+H) LAST TASK WE DID (สำคัญต้องจำ)
+===============================================================================
+1) ออกแบบ Dashboard v3 (UI ดีกว่า V2) เพิ่ม:
+   - MT5 Account number
+   - Win/Loss + daily report
+   - AI status + News status (web direct)
+   - Manual config editor (แก้ JSON แล้ว save)
+   - Mode presets update real config numbers
+
+2) แก้ backend API:
+   - แก้ 404 ด้วยการ serve GET "/" -> dashboard.html
+   - เปลี่ยน POST /api/config เป็น merge update
+   - เพิ่ม MT5 account info ใน /api/status
+
+3) ผลตรวจล่าสุด:
+   - /api/status: mt5_ok=true, account_login=168021026, positions_count=0
+   - แต่ config numbers ยัง null (ต้องแก้ resolver/default/mapping)
+
+===============================================================================
+I) RUN & GIT COMMAND ORDER (ใช้งานจริง)
+===============================================================================
+Run (local):
+1) cd C:\\Hybrid_Intelligence_Mentor
+2) python intelligent_dashboard.py
+   - เปิด: http://127.0.0.1:5000/
+   - ตรวจ: http://127.0.0.1:5000/api/status
+
+Git (repo):
+1) cd C:\\Hybrid_Intelligence_Mentor
+2) git status
+3) git add .
+4) git commit -m "Dashboard v3 + api_server root route + config merge + mt5 account status"
+5) git push origin main
+
+===============================================================================
+END OF FILE
+===============================================================================
