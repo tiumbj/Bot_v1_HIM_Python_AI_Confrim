@@ -8,7 +8,7 @@
     ]
   },
   "symbol": "GOLD",
-  "mode": "sideway_scalp",
+  "mode": "breakout",
   "timeframes": {
     "htf": "H1",
     "mtf": "M15",
