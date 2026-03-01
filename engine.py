@@ -1,25 +1,27 @@
 """
 Hybrid Intelligence Mentor (HIM) Trading Engine
-Version: 2.11.1
+Version: 2.12.0
 
 Changelog:
+- 2.12.0 (2026-03-01):
+  - ADD: Breakout Adaptive Proximity Gate (MTF ADX-based)
+      - If mode=breakout and proximity_score < proximity_min_score:
+        - bypass proximity gate when ADX_MTF > adx_proximity_override (default 30.0)
+      - Does NOT bypass other gates: BOS / Supertrend / Vol expansion / RR floor / risk guard / validator.
+  - FIX: score output now reflects the active mode correctly
+      - sideway_scalp: score = proximity_score (0..1)
+      - breakout: score = proximity_score_bk (0..100)
 - 2.11.1 (2026-03-01):
   - FIX: Restore MT5 data integration while adding Breakout mode (BOS + buffer + retest + Hybrid SL)
-  - ADD: breakout config knobs with sane defaults (no more NotImplemented get_rates)
+  - ADD: breakout config knobs with sane defaults
   - KEEP: sideway_scalp logic unchanged
 - 2.10.6 (2026-02-28):
-  - FIX: Prevent validator E_RR_FLOOR due to floating-point precision
-      - Use rr_eps to compute TP with target_rr = min_rr + rr_eps (strictly above RR floor)
-      - Keep fail-closed RR gate, but compare with epsilon tolerance: rr < (min_rr - eps)
-      - Add debug fields: debug_target_rr, debug_rr_eps
-  - KEEP: proximity_score_min gate (quality filter) for sideway_scalp
-  - KEEP: adaptive trigger knobs (near_trigger_atr, allow_soft_trigger, rsi_soft_band)
-  - KEEP: sideway_scalp NEUTRAL (bias_source="SIDEWAY_MODE", direction_bias="NEUTRAL")
-  - KEEP: regime gate = ADX low + BB width normalized by ATR
-  - KEEP: debug bag to diagnose rr/tick anomalies (only when attempting trade)
+  - FIX: Prevent validator E_RR_FLOOR due to floating-point precision (RR epsilon)
+  - KEEP: strict RR floor, fail-closed behavior
 
 Notes:
-- This version is intended to preserve strict RR floor at validator while avoiding float artifacts.
+- Intended for production-grade deterministic pipeline.
+- AI remains confirm-only (not in this module).
 """
 
 from __future__ import annotations
@@ -34,7 +36,7 @@ import MetaTrader5 as mt5
 from config_resolver import resolve_effective_config
 
 
-ENGINE_VERSION = "2.11.1"
+ENGINE_VERSION = "2.12.0"
 
 
 class TradingEngine:
@@ -128,7 +130,6 @@ class TradingEngine:
         if rates is None or len(rates) < 50:
             raise RuntimeError(f"no rates (symbol={symbol}, timeframe={timeframe}, n={n})")
 
-        # mt5 rates: time, open, high, low, close, tick_volume, spread, real_volume
         return {
             "time": np.array([r["time"] for r in rates], dtype=np.int64),
             "open": np.array([r["open"] for r in rates], dtype=float),
@@ -386,7 +387,7 @@ class TradingEngine:
             # Proximity scoring
             "proximity_window_atr": self.clamp(self.safe_float(c.get("proximity_window_atr", 1.00), 1.00), 0.10, 5.0),
 
-            # NEW: minimum proximity score to allow SOFT-ZONE triggers (quality gate)
+            # Minimum proximity score to allow SOFT-ZONE triggers (quality gate)
             "proximity_score_min": self.clamp(self.safe_float(c.get("proximity_score_min", 0.70), 0.70), 0.0, 1.0),
         }
 
@@ -398,8 +399,10 @@ class TradingEngine:
         - retest_required: ต้องมีการ retest level ภายใน lookback bars
         - retest_band_atr: ระยะยอมรับ retest รอบ level (เป็น ATR multiple)
         - sl_buffer_atr: บัฟเฟอร์ SL เพิ่มจากโครงสร้าง (structure) ด้วยความผันผวน (ATR)
-
         - bb_width_atr_min: volatility expansion gate (BBWidth/ATR ต้อง >= ค่านี้)
+
+        - proximity_threshold_atr / proximity_min_score: proximity gate (late-entry filter)
+        - adx_proximity_override: if ADX_MTF > this => bypass proximity gate (Adaptive)
         """
         b = cfg.get("breakout", {}) or {}
 
@@ -422,6 +425,9 @@ class TradingEngine:
         proximity_threshold_atr = self.clamp(self.safe_float(b.get("proximity_threshold_atr", 1.50), 1.50), 0.1, 10.0)
         proximity_min_score = self.clamp(self.safe_float(b.get("proximity_min_score", 0.0), 0.0), 0.0, 100.0)
 
+        # NEW (v2.12.0): Adaptive bypass threshold using MTF ADX
+        adx_proximity_override = self.clamp(self.safe_float(b.get("adx_proximity_override", 30.0), 30.0), 0.0, 100.0)
+
         return {
             "confirm_buffer_atr": confirm_buffer_atr,
             "retest_required": retest_required,
@@ -431,6 +437,7 @@ class TradingEngine:
             "bb_width_atr_min": bb_width_atr_min,
             "proximity_threshold_atr": proximity_threshold_atr,
             "proximity_min_score": proximity_min_score,
+            "adx_proximity_override": adx_proximity_override,
         }
 
     def generate_signal_package(self) -> Dict[str, Any]:
@@ -459,6 +466,7 @@ class TradingEngine:
         sens_mtf = self.safe_int(sens_cfg.get("mtf", 4), 4)
         sens_ltf = self.safe_int(sens_cfg.get("ltf", 3), 3)
 
+        # NOTE: timeframes default must reflect your current config conventions
         htf = str(tf_cfg.get("htf", "H4"))
         mtf = str(tf_cfg.get("mtf", "H1"))
         ltf = str(tf_cfg.get("ltf", "M15"))
@@ -547,11 +555,19 @@ class TradingEngine:
 
         sideway_ctx: Dict[str, Any] = {}
 
+        # sideway proximity score (0..1)
         distance_buy = float("nan")
         distance_sell = float("nan")
         proximity_side = "NONE"
         proximity_best_dist = float("nan")
         proximity_score = 0.0
+
+        # breakout proximity score (0..100)
+        proximity_score_bk = 0.0
+        proximity_bypassed_due_to_high_adx = False
+        adx_proximity_override_used: Optional[float] = None
+
+        score_out = 0.0
 
         if mode == "sideway_scalp":
             k = self._get_sideway_knobs(cfg)
@@ -699,22 +715,21 @@ class TradingEngine:
                 "proximity_score": proximity_score,
             }
 
+            score_out = float(proximity_score)
+
         elif mode == "breakout":
             kb = self._get_breakout_knobs(cfg)
 
-            adx_arr = self.adx(
-                mtf_high,
-                mtf_low,
-                mtf_close,
-                self.safe_int((cfg.get("sideway_scalp", {}) or {}).get("adx_period", 14), 14),
-            )
+            # MTF ADX (ตามที่คุณเลือก)
+            adx_period_mtf = self.safe_int((cfg.get("sideway_scalp", {}) or {}).get("adx_period", 14), 14)
+            adx_arr = self.adx(mtf_high, mtf_low, mtf_close, adx_period_mtf)
             adx_val = float(adx_arr[-1]) if (len(adx_arr) and np.isfinite(adx_arr[-1])) else float("nan")
 
             sw = cfg.get("sideway_scalp", {}) or {}
             bb_period = self.safe_int(sw.get("bb_period", 20), 20)
             bb_std = self.safe_float(sw.get("bb_std", 2.0), 2.0)
 
-            bb_u, bb_m, bb_l = self.bollinger(close, bb_period, bb_std)
+            bb_u, _, bb_l = self.bollinger(close, bb_period, bb_std)
             bb_upper = float(bb_u[-1]) if (len(bb_u) and np.isfinite(bb_u[-1])) else float("nan")
             bb_lower = float(bb_l[-1]) if (len(bb_l) and np.isfinite(bb_l[-1])) else float("nan")
             bb_width = float(bb_upper - bb_lower) if (np.isfinite(bb_upper) and np.isfinite(bb_lower)) else float("nan")
@@ -738,7 +753,14 @@ class TradingEngine:
             lookback = int(kb["retest_lookback_bars"])
             lookback = max(2, min(lookback, len(close)))
 
-            proximity_score_bk = 0.0
+            # Adaptive override threshold
+            adx_proximity_override_used = float(kb["adx_proximity_override"])
+
+            def _maybe_bypass_proximity_if_high_adx() -> bool:
+                # Fail-closed: ADX invalid => no bypass
+                if not np.isfinite(adx_val):
+                    return False
+                return bool(adx_val > adx_proximity_override_used)
 
             if len(blocked_reasons) == 0:
                 if direction_bias == "BUY":
@@ -755,12 +777,18 @@ class TradingEngine:
                                 if not (np.isfinite(recent_low) and recent_low <= (level + retest_band) and ltf_close > level):
                                     blocked_reasons.append("no_retest")
 
+                            # Proximity score (0..100)
                             if atr_val > 0 and float(kb["proximity_threshold_atr"]) > 0:
                                 dist_atr = float(abs(ltf_close - level) / atr_val)
                                 th = float(kb["proximity_threshold_atr"])
                                 proximity_score_bk = float(max(0.0, (th - dist_atr) / th) * 100.0)
+
+                            # Proximity gate with adaptive bypass
                             if proximity_score_bk < float(kb["proximity_min_score"]):
-                                blocked_reasons.append("low_proximity_score")
+                                if _maybe_bypass_proximity_if_high_adx():
+                                    proximity_bypassed_due_to_high_adx = True
+                                else:
+                                    blocked_reasons.append("low_proximity_score")
 
                             if len(blocked_reasons) == 0:
                                 direction_out = "BUY"
@@ -792,12 +820,18 @@ class TradingEngine:
                                 if not (np.isfinite(recent_high) and recent_high >= (level - retest_band) and ltf_close < level):
                                     blocked_reasons.append("no_retest")
 
+                            # Proximity score (0..100)
                             if atr_val > 0 and float(kb["proximity_threshold_atr"]) > 0:
                                 dist_atr = float(abs(ltf_close - level) / atr_val)
                                 th = float(kb["proximity_threshold_atr"])
                                 proximity_score_bk = float(max(0.0, (th - dist_atr) / th) * 100.0)
+
+                            # Proximity gate with adaptive bypass
                             if proximity_score_bk < float(kb["proximity_min_score"]):
-                                blocked_reasons.append("low_proximity_score")
+                                if _maybe_bypass_proximity_if_high_adx():
+                                    proximity_bypassed_due_to_high_adx = True
+                                else:
+                                    blocked_reasons.append("low_proximity_score")
 
                             if len(blocked_reasons) == 0:
                                 direction_out = "SELL"
@@ -818,6 +852,9 @@ class TradingEngine:
             sideway_ctx = {
                 "breakout": True,
                 "adx_val": adx_val,
+                "adx_period_mtf": int(adx_period_mtf),
+                "adx_proximity_override": float(adx_proximity_override_used) if adx_proximity_override_used is not None else None,
+                "proximity_bypassed_due_to_high_adx": bool(proximity_bypassed_due_to_high_adx),
                 "bb_width_atr": bb_width_atr,
                 "bb_width_atr_min": float(kb["bb_width_atr_min"]),
                 "confirm_buffer_atr": float(kb["confirm_buffer_atr"]),
@@ -826,7 +863,11 @@ class TradingEngine:
                 "retest_lookback_bars": int(kb["retest_lookback_bars"]),
                 "sl_buffer_atr": float(kb["sl_buffer_atr"]),
                 "proximity_score": float(proximity_score_bk),
+                "proximity_min_score": float(kb["proximity_min_score"]),
+                "proximity_threshold_atr": float(kb["proximity_threshold_atr"]),
             }
+
+            score_out = float(proximity_score_bk)
 
         blocked_by = ",".join(blocked_reasons) if blocked_reasons else None
 
@@ -840,7 +881,7 @@ class TradingEngine:
             "stop_candidate": stop_candidate,
             "tp_candidate": tp_candidate,
             "rr": float(rr),
-            "score": float(proximity_score),
+            "score": float(score_out),
             "confidence_py": 0,
             "bos": bool(direction_out in ("BUY", "SELL")),
             "supertrend_ok": bool(supertrend_ok),
