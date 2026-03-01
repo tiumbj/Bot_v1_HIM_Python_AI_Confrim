@@ -1,17 +1,21 @@
 """
 File: mentor_executor.py
 Path: C:\\Hybrid_Intelligence_Mentor\\mentor_executor.py
-Version: 2.10.0
+Version: 2.10.1
 
 CHANGELOG
-- 2.10.0
-  - ADD: Adaptive Strategy Router (SIDEWAY->sideway_scalp, TREND->breakout, TRANSITION->DRY_RUN)
-  - FIX: Eliminate mode mismatch causing engine blocks (e.g., not_sideway_adx)
-  - KEEP: RiskGuard v1.0.0 + Option A performance snapshot via mt5.history_deals_get()
-  - CHANGE: LIVE flag now comes from effective config (router may degrade to DRY_RUN in TRANSITION)
+- 2.10.1
+  - FIX: TRANSITION = HARD NO-TRADE ZONE (return before Engine/AI/RiskGuard)
+  - KEEP: Adaptive Strategy Router (SIDEWAY->sideway_scalp, TREND->breakout)
+  - KEEP: RiskGuard v1.0.0 + mt5.history_deals_get() (Option A)
+  - LIVE flag remains derived from effective config (router may force DRY_RUN)
 
 SAFETY
-- Transition => enable_execution forced false (DRY_RUN) by default
+- If adaptive_regime == TRANSITION:
+    - Do NOT call engine
+    - Do NOT call AI
+    - Do NOT call RiskGuard
+    - Log: DEBUG_SKIP | transition_phase_guard
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ from typing import Any, Dict, Optional, Tuple
 import MetaTrader5 as mt5
 
 from ai_bridge_v1 import confirm_via_api
-from regime_switch import decide_regime  # keep your existing indicator/regime computation
+from regime_switch import decide_regime
 from risk_guard_v1_0 import (
     RiskGuard,
     GuardConfig,
@@ -224,7 +228,7 @@ def _send_market_order(symbol: str, side: str, lot: float, sl: float, tp: float,
         "deviation": int(deviation),
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
-        "comment": "HIM v2.10.0",
+        "comment": "HIM v2.10.1",
     }
 
     result = mt5.order_send(request)
@@ -253,13 +257,13 @@ def main() -> None:
         now = _now_utc()
         _prune_sent_fingerprints(now)
 
-        # 1) Compute base regime metrics (keep your current logic)
+        # 1) Compute base regime metrics
         decision, err = decide_regime(cfg, symbol)
         if err:
             LOG.info("DEBUG_SKIP | regime_error=%s", err)
             return
 
-        # 2) Adaptive router picks mode (SIDEWAY->sideway_scalp, TREND->breakout, TRANSITION->DRY_RUN)
+        # 2) Adaptive router: pick mode & effective config
         cfg_eff, sel = build_effective_config_adaptive(cfg, decision)
 
         mode_eff = str(cfg_eff.get("mode", "manual"))
@@ -279,7 +283,7 @@ def main() -> None:
             json.dump(cfg_eff, f, ensure_ascii=False, indent=2)
 
         LOG.info(
-            "HIM Mentor Executor v2.10.0 | symbol=%s | mode=%s | LIVE=%s | lot=%.2f",
+            "HIM Mentor Executor v2.10.1 | symbol=%s | mode=%s | LIVE=%s | lot=%.2f",
             symbol, mode_eff, live_eff, lot
         )
 
@@ -294,7 +298,12 @@ def main() -> None:
             int(sel.get("metrics", {}).get("trend_off_count", 0)),
         )
 
-        # 3) Engine uses effective config only
+        # 2.5) HARD NO-TRADE ZONE: TRANSITION => stop immediately
+        if str(sel.get("adaptive_regime", "")).upper() == "TRANSITION":
+            LOG.info("DEBUG_SKIP | transition_phase_guard")
+            return
+
+        # 3) Engine uses effective config only (SIDEWAY or TREND only at this point)
         from engine import TradingEngine
 
         eng = TradingEngine(eff_path)
@@ -375,7 +384,7 @@ def main() -> None:
         if rg_dec.fingerprint:
             _SENT_FINGERPRINTS[rg_dec.fingerprint] = now
 
-        # 5) AI confirm + execute
+        # 5) AI confirm + execute (SIDEWAY/TREND only)
         engine_order = {
             "direction": direction,
             "entry": entry_f,
