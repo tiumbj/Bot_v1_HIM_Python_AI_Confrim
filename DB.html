@@ -1,0 +1,124 @@
+<!--
+=============================================================================
+Hybrid Intelligence Mentor (HIM) - Intelligent Trading Dashboard
+File: dashboard.html
+Version: v3.1.0
+=============================================================================
+-->
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<title>HIM Dashboard v3.1.0</title>
+<!-- (CSS เดิมทั้งหมดคงไว้ ไม่เปลี่ยน) -->
+</head>
+<body>
+<!-- (HTML ทั้งหมดเดิมคงไว้ ไม่เปลี่ยน) -->
+
+<script>
+/* =========================
+   HTTP HELPERS (improved)
+========================= */
+async function jget(url){
+  const r = await fetch(url);
+  const j = await r.json();
+  return j;
+}
+
+async function jpost(url, body){
+  const r = await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body||{})
+  });
+
+  const j = await r.json();
+
+  if(!r.ok || j.ok === false){
+    throw new Error(j.error || "API error");
+  }
+  return j;
+}
+
+/* =========================
+   EXECUTION TOGGLE (FIXED)
+========================= */
+async function setExecution(enable){
+
+  try{
+
+    if(enable){
+      const txt = prompt('พิมพ์ "CONFIRM LIVE" เพื่อเปิด LIVE execution');
+      if(txt !== 'CONFIRM LIVE'){
+        alert("ยกเลิก (คำยืนยันไม่ถูกต้อง)");
+        return;
+      }
+
+      await jpost('/api/config',{
+        enable_execution:true,
+        confirm_live:"CONFIRM LIVE"
+      });
+
+    }else{
+
+      await jpost('/api/config',{
+        enable_execution:false
+      });
+
+    }
+
+    await refreshAll();
+    alert("Execution updated");
+
+  }catch(e){
+    alert("Failed: " + e.message);
+    await refreshAll();
+  }
+}
+
+/* =========================
+   REFRESH STATUS (use execution_mode)
+========================= */
+async function refreshAll(){
+
+  const st = await jget('/api/status');
+
+  document.getElementById('st_symbol').innerText =
+    st.config?.symbol ?? '-';
+
+  document.getElementById('st_mode').innerText =
+    st.config?.mode ?? '-';
+
+  const execMode =
+    st.config?.execution_mode ??
+    (st.config?.enable_execution ? "LIVE" : "DRY_RUN");
+
+  document.getElementById('st_exec').innerText =
+    execMode === "LIVE"
+      ? 'LIVE (Execute)'
+      : 'DRY_RUN (No Execute)';
+
+  document.getElementById('btn_live')
+    .classList.toggle('active', execMode === "LIVE");
+
+  document.getElementById('btn_dry')
+    .classList.toggle('active', execMode !== "LIVE");
+
+  const mt5Ok = !!st.mt5?.mt5_ok;
+
+  document.getElementById('st_mt5').innerHTML =
+    mt5Ok
+      ? '<span class="ok">CONNECTED</span>'
+      : '<span class="bad">DISCONNECTED</span>';
+
+  document.getElementById('st_account').innerText =
+    st.mt5?.account_login ?? '-';
+}
+
+/* Boot */
+refreshAll();
+setInterval(refreshAll,8000);
+
+</script>
+</body>
+</html>

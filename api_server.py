@@ -1,21 +1,16 @@
 """
 api_server.py
-Version: 3.2.3
+Version: 3.2.2
 
 CHANGELOG
-- 3.2.3 (2026-03-01)
-  - FIX: /api/status and /api/signal_preview now load config.json (dict) before resolve_effective_config()
-  - ADD: Backend LIVE confirmation gate (confirm_live="CONFIRM LIVE") when enable_execution=true
-  - ADD: /api/status adds execution_mode field ("LIVE" | "DRY_RUN") as single UI-friendly source
-  - ADD: /api/health endpoint
-  - KEEP: GET "/" serves dashboard.html
-  - KEEP: POST /api/config merge update (deep merge)
-  - KEEP: /api/status includes MT5 account info
-  - KEEP: /api/performance fallback
-  - KEEP: /api/ai_confirm schema v1.0
+- 3.2.2 (2026-03-01)
+  - ADD: /api/health (simple readiness probe)
+  - FIX: POST /api/config requires confirm_live="CONFIRM LIVE" when enabling enable_execution=true
+  - ADD: /api/status adds execution_mode ("LIVE"/"DRY_RUN") and telegram.enabled status
+  - KEEP: GET "/" serve dashboard.html, merge update config, MT5 snapshot, /api/performance, /api/ai_confirm schema v1.0
 
 File: api_server.py
-Path: C:\\Hybrid_Intelligence_Mentor\\api_server.py
+Path: C:\Hybrid_Intelligence_Mentor\api_server.py
 """
 
 from __future__ import annotations
@@ -40,11 +35,11 @@ except Exception:
 
 app = Flask(__name__)
 CONFIG_PATH_DEFAULT = "config.json"
-CONFIRM_LIVE_PHRASE = "CONFIRM LIVE"
+CONFIRM_LIVE_TEXT = "CONFIRM LIVE"
 
 
 # -----------------------------
-# Static / Dashboard
+# Static / Dashboard (FIX 404)
 # -----------------------------
 @app.get("/")
 def root_dashboard():
@@ -81,12 +76,7 @@ def _save_json_file(path: str, data: Dict[str, Any]) -> bool:
 
 
 def _deep_merge(base: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Deep merge: base <- patch
-    - dict merges recursively
-    - list/scalar overwrite
-    """
-    out: Dict[str, Any] = dict(base)
+    out = dict(base)
     for k, v in (patch or {}).items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
             out[k] = _deep_merge(out.get(k, {}), v)
@@ -95,37 +85,13 @@ def _deep_merge(base: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def _effective_config() -> Dict[str, Any]:
-    """
-    Deterministic effective config:
-    - Always reload config.json from disk
-    - Always pass dict into resolve_effective_config()
-    - Provide safe fallbacks to prevent null leakage in dashboard
-    """
-    raw = _load_json_file(CONFIG_PATH_DEFAULT)
-    eff = resolve_effective_config(raw) or {}
-
-    # safe fallbacks (do not force types too aggressively)
-    if eff.get("symbol") in (None, ""):
-        eff["symbol"] = "GOLD"
-    if "enable_execution" not in eff or eff.get("enable_execution") is None:
-        eff["enable_execution"] = False
-
-    # numeric fallbacks (avoid null)
-    for k, default in (
-        ("confidence_threshold", 0),
-        ("min_score", 0),
-        ("min_rr", 0.0),
-        ("lot", 0.0),
-    ):
-        if eff.get(k) is None:
-            eff[k] = default
-
-    return eff
-
-
-def _execution_mode(enable_execution: Any) -> str:
-    return "LIVE" if bool(enable_execution) else "DRY_RUN"
+def _boolish(v: Any) -> bool:
+    if isinstance(v, bool):
+        return v
+    if v is None:
+        return False
+    s = str(v).strip().lower()
+    return s in ("1", "true", "yes", "y", "on", "enable", "enabled")
 
 
 # -----------------------------
@@ -202,47 +168,19 @@ def _rr(entry: float, sl: float, tp: float) -> float:
     return abs(tp - entry) / risk
 
 
-def _requires_confirm_live(patch: Dict[str, Any]) -> bool:
-    """
-    Enforce backend confirm-only gate:
-    If patch tries to set enable_execution to True, must include confirm_live phrase.
-    """
-    if not isinstance(patch, dict):
-        return False
-    if patch.get("enable_execution") is True:
-        return True
-    # (optional) if patch uses nested keys in future, keep current policy strict to top-level only
-    return False
-
-
-def _validate_confirm_live(patch: Dict[str, Any]) -> Tuple[bool, str]:
-    """
-    Return (ok, error_message).
-    """
-    if not _requires_confirm_live(patch):
-        return True, ""
-
-    confirm_live = str(patch.get("confirm_live") or "").strip()
-    if confirm_live != CONFIRM_LIVE_PHRASE:
-        return False, f"confirm_live_required: send confirm_live='{CONFIRM_LIVE_PHRASE}' to enable live execution"
-    return True, ""
-
-
 # -----------------------------
 # API: Health
 # -----------------------------
 @app.get("/api/health")
 def api_health():
+    cfg_eff = resolve_effective_config(CONFIG_PATH_DEFAULT) or {}
     mt5_snap = _mt5_status_snapshot()
-    raw = _load_json_file(CONFIG_PATH_DEFAULT)
-    cfg_loaded = isinstance(raw, dict) and bool(raw)
-
     return jsonify(
         {
             "ok": True,
             "ts": time.time(),
-            "config_loaded": bool(cfg_loaded),
-            "mt5_ok": bool(mt5_snap.get("mt5_ok", False)),
+            "config_loaded": bool(cfg_eff),
+            "mt5_ok": bool(mt5_snap.get("mt5_ok")),
         }
     ), 200
 
@@ -256,30 +194,56 @@ def api_get_config():
     return jsonify(cfg), 200
 
 
+def _require_confirm_live_if_needed(patch: Dict[str, Any], current_effective: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Return (ok, error_message). Enforce confirm_live for enable_execution=true transitions.
+    """
+    wants_enable = patch.get("enable_execution", None)
+    if wants_enable is None:
+        return True, ""
+
+    wants_enable_b = _boolish(wants_enable)
+    if not wants_enable_b:
+        # disabling is always allowed
+        return True, ""
+
+    # wants enable=True
+    already_enabled = bool(current_effective.get("enable_execution", False))
+    if already_enabled:
+        return True, ""
+
+    confirm = patch.get("confirm_live", None)
+    if confirm != CONFIRM_LIVE_TEXT:
+        return False, "confirm_live_required: send confirm_live='CONFIRM LIVE' to enable live execution"
+
+    return True, ""
+
+
 @app.post("/api/config")
 def api_set_config():
     """
     Merge update (สำคัญ):
     - Dashboard ส่ง patch หรือส่งทั้งก้อนก็ได้
     - กัน config key หายจากการเขียนทับทั้งไฟล์
-
-    Safety:
-    - ถ้าจะ enable_execution=true ต้องส่ง confirm_live="CONFIRM LIVE"
+    - Safety: ถ้าจะเปิด enable_execution=true ต้องมี confirm_live="CONFIRM LIVE"
     """
     patch = request.get_json(silent=True) or {}
     if not isinstance(patch, dict):
         return jsonify({"ok": False, "error": "config_payload_must_be_object"}), 400
 
-    ok_confirm, err = _validate_confirm_live(patch)
+    # enforce confirm live (server-side)
+    cfg_eff = resolve_effective_config(CONFIG_PATH_DEFAULT) or {}
+    ok_confirm, err = _require_confirm_live_if_needed(patch, cfg_eff)
     if not ok_confirm:
         return jsonify({"ok": False, "error": err}), 400
 
-    # remove confirm_live from persisted config (not part of config schema)
-    patch_clean = dict(patch)
-    patch_clean.pop("confirm_live", None)
+    # do not persist confirm_live into config.json
+    if "confirm_live" in patch:
+        patch = dict(patch)
+        patch.pop("confirm_live", None)
 
     current = _load_json_file(CONFIG_PATH_DEFAULT)
-    merged = _deep_merge(current, patch_clean)
+    merged = _deep_merge(current, patch)
     ok = _save_json_file(CONFIG_PATH_DEFAULT, merged)
     return jsonify({"ok": ok}), (200 if ok else 500)
 
@@ -297,13 +261,14 @@ def api_set_mode(mode_id: str):
 # -----------------------------
 @app.get("/api/status")
 def api_status():
-    cfg_eff = _effective_config()
+    cfg_eff = resolve_effective_config(CONFIG_PATH_DEFAULT) or {}
     mt5_snap = _mt5_status_snapshot()
 
     enable_exec = bool(cfg_eff.get("enable_execution", False))
-    lot = cfg_eff.get("lot")
-    if lot in (None, 0, 0.0):
-        lot = (cfg_eff.get("execution", {}) or {}).get("volume")
+    exec_mode = "LIVE" if enable_exec else "DRY_RUN"
+
+    telegram_cfg = (cfg_eff.get("telegram", {}) or {}) if isinstance(cfg_eff.get("telegram", {}), dict) else {}
+    telegram_enabled = bool(telegram_cfg.get("enabled", False))
 
     return jsonify(
         {
@@ -313,11 +278,14 @@ def api_status():
                 "mode": cfg_eff.get("mode"),
                 "symbol": cfg_eff.get("symbol", "GOLD"),
                 "enable_execution": enable_exec,
-                "execution_mode": _execution_mode(enable_exec),
+                "execution_mode": exec_mode,
                 "confidence_threshold": cfg_eff.get("confidence_threshold"),
                 "min_score": cfg_eff.get("min_score"),
                 "min_rr": cfg_eff.get("min_rr"),
-                "lot": lot,
+                "lot": cfg_eff.get("lot") or (cfg_eff.get("execution", {}) or {}).get("volume"),
+                "telegram": {
+                    "enabled": telegram_enabled,
+                },
             },
             "mt5": mt5_snap,
         }
@@ -326,7 +294,7 @@ def api_status():
 
 @app.get("/api/signal_preview")
 def api_signal_preview():
-    cfg_eff = _effective_config()
+    cfg_eff = resolve_effective_config(CONFIG_PATH_DEFAULT) or {}
     return jsonify(
         {
             "ok": True,

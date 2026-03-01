@@ -8,7 +8,7 @@
     ]
   },
   "symbol": "GOLD",
-  "mode": "sideway_scalp",
+  "mode": "manual",
   "timeframes": {
     "htf": "H1",
     "mtf": "M15",
@@ -77,7 +77,7 @@
         "atr_period": 14,
         "atr_sl_mult": 1.6
       },
-        "execution": {
+      "execution": {
         "enable_live_trading": true,
         "allow_multiple_positions": true,
         "duplicate_cooldown_sec": 30,
@@ -86,7 +86,7 @@
         "volume": 0.01,
         "magic": 240227,
         "require_symbol_trade_allowed": true
-      },	  
+      },
       "sideway_scalp": {
         "enabled": true,
         "adx_period": 14,
@@ -105,13 +105,17 @@
   "telegram": {
     "enabled": false
   },
-"ai": {
-  "api_url": "http://127.0.0.1:5000/api/ai_confirm",
-  "timeout_sec": 15,
-  "min_rr": 1.5,
-  "entry_shift_max_atr": 0.20,
-  "entry_shift_max_pct": 0.0,
-  "enforce_mode_lock": false
-},
-  "proximity_score_min": 0.65
+  "ai": {
+    "api_url": "http://127.0.0.1:5000/api/ai_confirm",
+    "timeout_sec": 15,
+    "min_rr": 1.5,
+    "entry_shift_max_atr": 0.2,
+    "entry_shift_max_pct": 0.0,
+    "enforce_mode_lock": false
+  },
+  "proximity_score_min": 0.65,
+  "confidence_threshold": 50,
+  "min_score": 0,
+  "lot": 0.01,
+  "enable_execution": true
 }

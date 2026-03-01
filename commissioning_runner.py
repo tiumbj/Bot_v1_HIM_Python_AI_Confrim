@@ -2,41 +2,36 @@
 # Hybrid Intelligence Mentor (HIM) - Commissioning Runner
 # File: commissioning_runner.py
 # Path: C:\Hybrid_Intelligence_Mentor\commissioning_runner.py
-# Version: v1.0.0
+# Version: v1.0.1
 # Date: 2026-03-01 (Asia/Bangkok)
 #
 # Changelog:
-# - v1.0.0: เพิ่ม commissioning runner แบบ auto-detect
-#   - ถ้า tick สด -> เรียก mentor_executor.py (DRY_RUN/LIVE ตาม config)
-#   - ถ้า tick stale (เช่นวันอาทิตย์) -> run "Replay Commissioning" โดยใช้ข้อมูล historical
-#     เพื่อทดสอบ Data feed + AI Confirm schema v1.0 + Validator v1.0 (fail-closed)
+# - v1.0.1:
+#   1) Fix: Replay RR floor precision ด้วย epsilon (กัน rr=1.4999999999999 หลุด floor=1.5)
+#   2) Fix: ส่ง direction/lot/mode แบบ fail-closed defaults เมื่อ AI ตอบไม่ครบ (ให้ validator ตัดสินชัด)
+#   3) Improve: แสดงค่า RR computed จาก replay order ก่อนส่ง AI/Validator เพื่อ debug ง่ายขึ้น
 #
 # Notes (Design Intent):
 # - ปลอดภัยก่อน: replay mode จะไม่ส่งคำสั่งเทรดจริงเข้า MT5
 # - deterministic: สร้าง baseline order จาก historical bars แบบกำหนดสูตรตายตัว
-# - ใช้ schema v1.0 และเรียก validator ก่อนเสมอ
+# - ใช้ schema v1.0 และเรียก validator ก่อนเสมอ (fail-closed)
 # =============================================================================
 
 from __future__ import annotations
 
 import json
 import math
-import os
+import subprocess
 import sys
 import time
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import MetaTrader5 as mt5
-
-# replay calculations
 import numpy as np
 import pandas as pd
-
-# http for AI confirm endpoint
 import requests
 
 
@@ -57,7 +52,7 @@ def _read_json(path: Path) -> Dict[str, Any]:
 
 
 def _safe_get(d: Dict[str, Any], keys: Tuple[str, ...], default=None):
-    cur = d
+    cur: Any = d
     for k in keys:
         if not isinstance(cur, dict) or k not in cur:
             return default
@@ -90,11 +85,9 @@ def atr_wilder(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int
     if n < period + 1:
         return atr
 
-    # first ATR = SMA(TR, period) on first 'period' TR values starting at index 1..period
     first = np.nanmean(tr[1:period + 1])
     atr[period] = first
 
-    # Wilder smoothing
     for i in range(period + 1, n):
         atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period
 
@@ -103,7 +96,7 @@ def atr_wilder(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int
 
 def adx_wilder(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> np.ndarray:
     """
-    ADX แบบ Wilder (คำนวณ +DI, -DI, DX, แล้ว smooth เป็น ADX)
+    ADX แบบ Wilder
     Returns array len = n (ค่าแรกๆ เป็น nan)
     """
     n = len(close)
@@ -121,7 +114,6 @@ def adx_wilder(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int
     prev_close = close[:-1]
     tr[1:] = np.maximum(high[1:] - low[1:], np.maximum(np.abs(high[1:] - prev_close), np.abs(low[1:] - prev_close)))
 
-    # Wilder smoothing for TR, +DM, -DM
     tr14 = np.full(n, np.nan, dtype=float)
     p14 = np.full(n, np.nan, dtype=float)
     m14 = np.full(n, np.nan, dtype=float)
@@ -142,7 +134,6 @@ def adx_wilder(high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int
     dx = np.where(np.isfinite(dx), dx, np.nan)
 
     adx = np.full(n, np.nan, dtype=float)
-    # first ADX at index = 2*period is average of DX from period..2*period-1
     first_adx_idx = 2 * period
     adx[first_adx_idx] = np.nanmean(dx[period:first_adx_idx])
 
@@ -165,8 +156,7 @@ def bb_width(close: np.ndarray, period: int = 20, stdev: float = 2.0) -> np.ndar
     sd = s.rolling(period).std(ddof=0)
     upper = ma + stdev * sd
     lower = ma - stdev * sd
-    w = (upper - lower).to_numpy(dtype=float)
-    out[:] = w
+    out[:] = (upper - lower).to_numpy(dtype=float)
     return out
 
 
@@ -223,20 +213,23 @@ def build_replay_engine_order(cfg: Dict[str, Any], rates_df: pd.DataFrame) -> En
     direction = "BUY" if last_close > sma20 else "SELL"
 
     # sizing rule (deterministic):
-    # SL distance = 1.0 * ATR
-    # TP distance = max(min_rr, 1.5) * SL distance
+    # - SL distance = 1.0 * ATR
+    # - TP distance = (target_rr + epsilon) * SL distance
+    #   เพื่อกัน floating precision ทำ rr หลุด floor เช่น 1.499999999999956
     sl_dist = 1.0 * last_atr
-    tp_dist = max(min_rr, 1.5) * sl_dist
+    target_rr = max(min_rr, 1.5)
+    epsilon = 1e-6  # deterministic micro-buffer
+    tp_dist = (target_rr + epsilon) * sl_dist
 
     entry = last_close
     if direction == "BUY":
         sl = entry - sl_dist
         tp = entry + tp_dist
-        rr = (tp - entry) / max(entry - sl, 1e-9)
+        rr = (tp - entry) / max(entry - sl, 1e-12)
     else:
         sl = entry + sl_dist
         tp = entry - tp_dist
-        rr = (entry - tp) / max(sl - entry, 1e-9)
+        rr = (entry - tp) / max(sl - entry, 1e-12)
 
     bw_atr = last_bw / last_atr if last_atr > 0 else float("nan")
 
@@ -262,13 +255,12 @@ def build_replay_engine_order(cfg: Dict[str, Any], rates_df: pd.DataFrame) -> En
 
 def call_ai_confirm_v1(cfg: Dict[str, Any], order: EngineOrder) -> Dict[str, Any]:
     """
-    เรียก /api/ai_confirm โดยส่ง baseline fields แบบ top-level (ตาม issue ที่เคยเจอ)
+    เรียก /api/ai_confirm โดยส่ง baseline fields แบบ top-level
     """
     api_url = str(_safe_get(cfg, ("ai", "api_url"), "http://127.0.0.1:5000/api/ai_confirm"))
     timeout_sec = float(_safe_get(cfg, ("ai", "timeout_sec"), 10))
 
     payload = {
-        # baseline fields (top-level)
         "symbol": order.symbol,
         "mode": order.mode,
         "direction": order.direction,
@@ -276,7 +268,6 @@ def call_ai_confirm_v1(cfg: Dict[str, Any], order: EngineOrder) -> Dict[str, Any
         "entry": order.entry,
         "sl": order.sl,
         "tp": order.tp,
-        # context fields (optional but useful)
         "atr": order.atr,
         "adx": order.adx,
         "bb_width": order.bb_width,
@@ -292,12 +283,48 @@ def call_ai_confirm_v1(cfg: Dict[str, Any], order: EngineOrder) -> Dict[str, Any
     return data
 
 
+def _normalize_ai_payload_fail_closed(ai_payload: Dict[str, Any], order: EngineOrder) -> Dict[str, Any]:
+    """
+    AI อาจส่ง REJECT และ omit fields บางตัว (direction/lot/mode)
+    เรา normalize แบบ fail-closed:
+    - ถ้า missing -> ใส่ค่าจาก engine baseline (เพื่อให้ validator ประเมินได้ชัด)
+    - ไม่ได้ทำให้ “ผ่าน” อัตโนมัติ; validator ยังเป็นคนตัดสิน
+    """
+    out = dict(ai_payload)
+
+    # required-by-schema fields ที่มักหลุดใน REJECT
+    if out.get("schema_version") is None:
+        out["schema_version"] = "1.0"
+    if out.get("decision") is None:
+        out["decision"] = "REJECT"
+    if out.get("confidence") is None:
+        out["confidence"] = 0.0
+    if out.get("note") is None:
+        out["note"] = "AI fail-closed (missing fields)"
+
+    # lock fields from engine baseline
+    if out.get("direction") is None:
+        out["direction"] = order.direction
+    if out.get("lot") is None:
+        out["lot"] = order.lot
+    if out.get("mode") is None:
+        out["mode"] = order.mode
+
+    # price fields (ถ้า AI ไม่ส่ง ให้ยึด baseline)
+    if out.get("entry") is None:
+        out["entry"] = order.entry
+    if out.get("sl") is None:
+        out["sl"] = order.sl
+    if out.get("tp") is None:
+        out["tp"] = order.tp
+
+    return out
+
+
 def validate_with_validator_v1_0(ai_payload: Dict[str, Any], order: EngineOrder, cfg: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
     """
-    เรียก validator_v1_0.py ถ้ามีใน repo
-    engine_order ที่ส่งให้ validator จะ map ให้ครบ fields ที่ validator ต้องการ
+    เรียก validator_v1_0.py
     """
-    # map to engine_order format (ขั้นต่ำที่ validator มักต้องใช้)
     engine_order = {
         "symbol": order.symbol,
         "mode": order.mode,
@@ -322,13 +349,13 @@ def validate_with_validator_v1_0(ai_payload: Dict[str, Any], order: EngineOrder,
         return False, f"validator_import_error: {e}", {"engine_order": engine_order, "ai_payload": ai_payload}
 
     try:
-        res = validate_ai_response_v1_0(ai_payload, engine_order)  # expected ValidationResult-like
-        # Normalize output (รองรับทั้ง dataclass/object/dict)
+        res = validate_ai_response_v1_0(ai_payload, engine_order)  # ValidationResult-like
         ok = bool(getattr(res, "ok", False)) if not isinstance(res, dict) else bool(res.get("ok", False))
         decision = getattr(res, "decision", None) if not isinstance(res, dict) else res.get("decision", None)
-        reason = getattr(res, "reason", "") if not isinstance(res, dict) else res.get("reason", "")
+        reasons = getattr(res, "reasons", ()) if not isinstance(res, dict) else res.get("reasons", ())
+        errors = getattr(res, "errors", ()) if not isinstance(res, dict) else res.get("errors", ())
 
-        msg = f"ok={ok} decision={decision} reason={reason}".strip()
+        msg = f"ok={ok} decision={decision} errors={errors} reasons={reasons}"
         return ok, msg, {"engine_order": engine_order, "ai_payload": ai_payload, "validator_result": res}
     except Exception as e:
         return False, f"validator_runtime_error: {e}", {"engine_order": engine_order, "ai_payload": ai_payload}
@@ -360,7 +387,6 @@ def get_tick_age_sec(symbol: str) -> Tuple[Optional[float], Dict[str, Any]]:
         meta["tick"] = None
         return None, meta
 
-    # tick.time is seconds since epoch (broker server time aligned)
     tick_ts = float(getattr(tick, "time", 0.0))
     age = _now_utc_ts() - tick_ts if tick_ts > 0 else None
 
@@ -378,7 +404,6 @@ def fetch_rates(symbol: str, timeframe: int, bars: int = 500) -> pd.DataFrame:
     if rates is None or len(rates) == 0:
         raise RuntimeError("MT5 copy_rates_from_pos returned empty")
     df = pd.DataFrame(rates)
-    # MT5 returns 'time' as seconds since epoch
     df["time_utc"] = pd.to_datetime(df["time"], unit="s", utc=True)
     return df
 
@@ -388,9 +413,6 @@ def fetch_rates(symbol: str, timeframe: int, bars: int = 500) -> pd.DataFrame:
 # -----------------------------
 
 def run_live_executor() -> int:
-    """
-    เรียก mentor_executor.py แบบ subprocess (ไม่ต้องแก้ไฟล์เดิม)
-    """
     exe = [sys.executable, "mentor_executor.py"]
     print("\n[RUN] Live path: calling mentor_executor.py")
     print("CMD:", " ".join(exe))
@@ -399,15 +421,8 @@ def run_live_executor() -> int:
 
 
 def run_replay_commissioning(cfg: Dict[str, Any]) -> int:
-    """
-    Replay commissioning:
-    - ดึง historical bars (H1) แล้วสร้าง baseline order deterministic
-    - เรียก AI confirm
-    - เรียก Validator v1.0 (fail-closed)
-    """
     symbol = str(cfg.get("symbol", "GOLD"))
 
-    # เลือก timeframe สำหรับ replay (H1 เป็น default ที่เสถียรกับ indicator)
     tf = mt5.TIMEFRAME_H1
     bars = int(_safe_get(cfg, ("commissioning", "replay_bars"), 500))
 
@@ -432,17 +447,18 @@ def run_replay_commissioning(cfg: Dict[str, Any]) -> int:
         "sl": order.sl,
         "tp": order.tp,
         "rr": order.rr,
+        "min_rr": float(cfg.get("min_rr", 1.5)),
         "atr": order.atr,
         "adx": order.adx,
         "bb_width": order.bb_width,
         "bb_width_atr": order.bb_width_atr,
     })
 
-    # AI confirm
     print("\n[REPLAY] Calling AI confirm endpoint (/api/ai_confirm) ...")
-    ai_payload = call_ai_confirm_v1(cfg, order)
+    raw_ai = call_ai_confirm_v1(cfg, order)
+    ai_payload = _normalize_ai_payload_fail_closed(raw_ai, order)
 
-    _print_kv("AI payload", {
+    _print_kv("AI payload (normalized)", {
         "schema_version": ai_payload.get("schema_version"),
         "decision": ai_payload.get("decision"),
         "confidence": ai_payload.get("confidence"),
@@ -455,7 +471,6 @@ def run_replay_commissioning(cfg: Dict[str, Any]) -> int:
         "note": ai_payload.get("note"),
     })
 
-    # Validator
     print("\n[REPLAY] Validating with validator_v1_0 (fail-closed) ...")
     ok, msg, debug = validate_with_validator_v1_0(ai_payload, order, cfg)
 
@@ -471,11 +486,6 @@ def run_replay_commissioning(cfg: Dict[str, Any]) -> int:
 
 
 def load_config() -> Dict[str, Any]:
-    """
-    โหลด config.json แบบ robust:
-    - ถ้ามี config_resolver.py และมี API โหลด ให้ใช้ (ถ้ามี)
-    - ไม่งั้นอ่าน config.json ตรงๆ
-    """
     root = Path(__file__).resolve().parent
     cfg_path = root / "config.json"
     if not cfg_path.exists():
@@ -484,8 +494,6 @@ def load_config() -> Dict[str, Any]:
     # Try resolver (ถ้ามี)
     try:
         import config_resolver  # type: ignore
-
-        # รองรับหลายรูปแบบ เพื่อไม่ lock-in
         if hasattr(config_resolver, "load_effective_config"):
             return config_resolver.load_effective_config(str(cfg_path))  # type: ignore
         if hasattr(config_resolver, "ConfigResolver"):
@@ -505,7 +513,7 @@ def main() -> int:
     tick_max_age_sec = float(_safe_get(cfg, ("execution", "tick_max_age_sec"), 15))
 
     print("============================================================")
-    print("HIM Commissioning Runner v1.0.0")
+    print("HIM Commissioning Runner v1.0.1")
     print("============================================================")
 
     mt5_init_or_die()
