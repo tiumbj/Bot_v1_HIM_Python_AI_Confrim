@@ -117,5 +117,6 @@
   "confidence_threshold": 75,
   "min_score": 7,
   "lot": 0.01,
-  "enable_execution": false
+  "enable_execution": false,
+  "execution": {}
 }
