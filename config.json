@@ -34,10 +34,13 @@
   },
   "breakout": {
     "confirm_buffer_atr": 0.05,
-    "proximity_threshold_atr": 1.5,
+    "proximity_threshold_atr": 2.5,
     "proximity_min_score": 10.0,
     "retest_required": true,
     "retest_band_atr": 0.3
+  },
+  {
+  "adx_proximity_override": 30.0
   },
   "continuation": {
     "enabled": false,
