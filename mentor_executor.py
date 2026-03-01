@@ -1,502 +1,294 @@
 """
-Mentor Executor - Execution Controller (Phase 9 Live Stabilization)
-Version: 2.7.1
+File: mentor_executor.py
+Path: C:\\Hybrid_Intelligence_Mentor\\mentor_executor.py
+Version: 2.8.0
 
-CHANGELOG
-- 2.7.1 (2026-02-28)
-  - FIX: Call TradingEngine.generate_signal_package() with signature-safe adapter
-         (handles engines that do not accept keyword 'symbol')
-  - KEEP: validator_v1_0 confirm-only enforcement at NEW TRADE boundary (fail-closed)
-  - KEEP: MT5 safety guards, stop-level check, spread clamp, confidence threshold
+Changelog:
+- v2.8.0:
+  - Integrate Regime Switch (ADX+BBWidth/ATR) -> build effective config in-memory.
+  - Engine -> engine_order (entry/sl/tp/lot/mode/atr).
+  - AI confirm via /api/ai_confirm using schema v1.0 baseline fields.
+  - Validator enforced (fail-closed).
+  - MT5 safety guards: stale tick, spread, stop_level/freeze_level, duplicate position guard.
+  - Supports DRY_RUN mode (default True unless config execution.live=true).
 
-FROZEN DECISIONS
-- RR floor default = 1.5
-- Confirm-only: AI cannot change direction/lot; bounded entry shift; SL tighten-only; RR floor
+Notes (TH):
+- โฟกัส: ทำให้ End-to-End ทำงานจริง (Engine→AI→Validator→MT5)
+- ไม่พยายาม optimize strategy ในไฟล์นี้
+- ถ้าไม่มี candidate หรือถูกบล็อก: log DEBUG_SKIP พร้อมเหตุผล
 """
 
 from __future__ import annotations
 
-import inspect
+import json
 import logging
 import time
-import traceback
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import MetaTrader5 as mt5
 
-from ai_mentor import AIMentor
-from config_resolver import resolve_effective_config
-from engine import TradingEngine
-from telegram_notifier import TelegramNotifier
-from trade_logger import TradeLogger
-from validator_v1_0 import ValidationPolicy, validate_ai_response_v1_0
+from ai_bridge_v1 import confirm_via_api
+from regime_switch import decide_regime, build_effective_config
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
-logger = logging.getLogger("HIM")
+LOG = logging.getLogger("mentor_executor")
 
 
-# -----------------------------
-# small helpers
-# -----------------------------
-def _sf(x: Any, default: float = 0.0) -> float:
-    try:
-        if x is None:
-            return float(default)
-        return float(x)
-    except Exception:
-        return float(default)
+def _load_json(path: str) -> Dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def _si(x: Any, default: int = 0) -> int:
-    try:
-        if x is None:
-            return int(default)
-        return int(float(x))
-    except Exception:
-        return int(default)
+def _now_ts() -> int:
+    return int(time.time())
 
 
-def _sanity(direction: str, entry: float, sl: float, tp: float) -> bool:
-    if direction == "BUY":
-        return sl < entry < tp
-    if direction == "SELL":
-        return tp < entry < sl
-    return False
+def _ensure_symbol(symbol: str) -> None:
+    info = mt5.symbol_info(symbol)
+    if info is None:
+        raise RuntimeError(f"symbol not found: {symbol}")
+    if not info.visible:
+        mt5.symbol_select(symbol, True)
 
 
-class MentorExecutor:
-    def __init__(self, config_path: str = "config.json"):
-        self.config_path = config_path
-        self.engine = TradingEngine(config_path)
-        self.ai = AIMentor()
-        self.tg = TelegramNotifier(config_path)
-        self.tlog = TradeLogger(config_path)
-
-    # -----------------------------
-    # MT5 utils
-    # -----------------------------
-    def _get_info(self, symbol: str):
-        return mt5.symbol_info(symbol)
-
-    def _spread_points(self, symbol: str) -> float:
-        tick = mt5.symbol_info_tick(symbol)
-        info = self._get_info(symbol)
-        if not tick or not info or not info.point:
-            return 0.0
-        return abs(float(tick.ask) - float(tick.bid)) / float(info.point)
-
-    def _positions(self, symbol: str):
-        try:
-            return mt5.positions_get(symbol=symbol) or []
-        except Exception:
-            return []
-
-    # -----------------------------
-    # Engine adapter (FIX)
-    # -----------------------------
-    def _engine_generate_pkg(self, symbol: str, mode: str):
-        """
-        Signature-safe adapter for TradingEngine.generate_signal_package.
-
-        Supports common variants:
-        - generate_signal_package(symbol, mode)
-        - generate_signal_package(mode)
-        - generate_signal_package()
-        - generate_signal_package(symbol=symbol, mode=mode) (if supported)
-
-        Fail-closed: on mismatch returns None and logs once per loop.
-        """
-        fn = getattr(self.engine, "generate_signal_package", None)
-        if fn is None:
-            logger.error("TradingEngine has no generate_signal_package()")
-            return None
-
-        # 1) Try keyword call (newer style)
-        try:
-            return fn(symbol=symbol, mode=mode)
-        except TypeError:
-            pass
-
-        # 2) Try inspect parameters and map safely
-        try:
-            sig = inspect.signature(fn)
-            params = list(sig.parameters.keys())
-
-            # Remove 'self' if present in signature display (usually not, but keep safe)
-            if params and params[0] == "self":
-                params = params[1:]
-
-            # Common naming
-            has_symbol = any(p in ("symbol", "sym", "ticker") for p in params)
-            has_mode = any(p in ("mode", "profile", "strategy_mode") for p in params)
-
-            # If accepts 2 positional args
-            if len(params) >= 2:
-                return fn(symbol, mode)
-
-            # If accepts 1 arg: prefer mode if it looks like mode-based, else symbol
-            if len(params) == 1:
-                if has_mode and not has_symbol:
-                    return fn(mode)
-                return fn(symbol)
-
-            # If accepts 0 args
-            if len(params) == 0:
-                return fn()
-
-        except Exception:
-            # ignore and fall through to brute-force attempts
-            pass
-
-        # 3) Brute-force attempts (last resort)
-        for args in ((symbol, mode), (mode,), (symbol,), ()):
-            try:
-                return fn(*args)
-            except TypeError:
-                continue
-            except Exception:
-                logger.error("Engine generate_signal_package() exception:\n" + traceback.format_exc())
-                return None
-
-        logger.error("Engine generate_signal_package() signature mismatch; cannot call")
+def _get_spread_points(symbol: str) -> Optional[float]:
+    tick = mt5.symbol_info_tick(symbol)
+    if tick is None:
         return None
+    info = mt5.symbol_info(symbol)
+    if info is None:
+        return None
+    point = float(info.point)
+    if point <= 0:
+        return None
+    return float(tick.ask - tick.bid) / point
 
-    # -----------------------------
-    # AI package builder
-    # -----------------------------
-    def _build_ai_package(self, cfg_eff: Dict[str, Any], pkg: Dict[str, Any]) -> Dict[str, Any]:
-        symbol = str(cfg_eff.get("symbol", "GOLD"))
-        direction = str(pkg.get("direction", "NONE")).upper()
 
-        entry0 = _sf(pkg.get("entry_candidate"))
-        sl0 = _sf(pkg.get("stop_candidate"))
-        tp0 = _sf(pkg.get("tp_candidate"))
-        rr0 = _sf(pkg.get("rr"), 0.0)
+def _is_tick_stale(symbol: str, max_age_sec: int) -> Tuple[bool, str]:
+    tick = mt5.symbol_info_tick(symbol)
+    if tick is None:
+        return True, "no_tick"
+    age = _now_ts() - int(tick.time)
+    if age > max_age_sec:
+        return True, f"stale_tick_age_sec={age}"
+    return False, ""
 
-        ctx = (pkg.get("context") or {})
-        atr = _sf(ctx.get("atr", pkg.get("atr", 0.0)), 0.0)
 
-        spread_pts = self._spread_points(symbol)
-        info = self._get_info(symbol)
-        exec_ctx = {
-            "spread_current": float(spread_pts),
-            "spread_avg_5m": float(spread_pts),
-            "spread_z": 0.0,
-            "slippage_estimate": 0.3,
-            "freeze_level": int(getattr(info, "trade_freeze_level", 0) or 0),
-            "stop_level": int(getattr(info, "trade_stops_level", 0) or 0),
-        }
+def _has_open_position(symbol: str) -> bool:
+    pos = mt5.positions_get(symbol=symbol)
+    return pos is not None and len(pos) > 0
 
-        structure = {
-            "bos": bool(pkg.get("bos", False)),
-            "choch": bool(ctx.get("choch", False)),
-            "htf_bias": ctx.get("HTF_trend") or ctx.get("htf_bias") or "unknown",
-            "mtf_bias": ctx.get("MTF_trend") or ctx.get("mtf_bias") or "unknown",
-            "ltf_bias": ctx.get("LTF_trend") or ctx.get("ltf_bias") or "unknown",
-            "proximity_score": ctx.get("proximity_score"),
-        }
 
-        technical = {
-            "bb_state": ctx.get("bb_state") or ctx.get("bb"),
-            "rsi": ctx.get("rsi"),
-            "adx": ctx.get("adx"),
-            "supertrend": ctx.get("supertrend_dir") or "unknown",
-            "volatility_z": ctx.get("vol_z") or ctx.get("vol"),
-        }
+def _validate_stop_levels(symbol: str, sl: float, tp: float, entry: float, side: str) -> Tuple[bool, str]:
+    info = mt5.symbol_info(symbol)
+    if info is None:
+        return False, "no_symbol_info"
 
-        context = {
-            "regime": ctx.get("regime") or cfg_eff.get("mode") or "unknown",
-            "session": ctx.get("session") or "unknown",
-            "event_risk": ctx.get("event_risk") or "NONE",
-            "time_to_event_min": ctx.get("time_to_event_min"),
-            "correlations": ctx.get("correlations") or {},
-            "liquidity": ctx.get("liq") or ctx.get("liquidity") or "",
-        }
+    stop_level = int(getattr(info, "trade_stops_level", 0))
+    freeze_level = int(getattr(info, "trade_freeze_level", 0))
+    point = float(info.point) if float(info.point) > 0 else 0.0
 
-        positions = self._positions(symbol)
-        portfolio = {
-            "open_positions_symbol": len(positions),
-            "daily_pnl_usd": 0.0,
-            "equity_drawdown_pct": 0.0,
-            "correlation_risk": _sf(ctx.get("correlation_risk"), 0.0),
-        }
+    if point <= 0:
+        return False, "bad_point"
 
-        ai_cfg = (cfg_eff.get("ai") or {})
-        constraints = {
-            "min_rr": _sf(cfg_eff.get("min_rr", 1.5), 1.5),
-            "entry_shift_max_atr": _sf(ai_cfg.get("entry_shift_max_atr", 0.20), 0.20),
-            "sl_atr_min": _sf(ai_cfg.get("sl_atr_min", 1.20), 1.20),
-            "sl_atr_max": _sf(ai_cfg.get("sl_atr_max", 1.80), 1.80),
-            "conf_execute_threshold": _si(cfg_eff.get("confidence_threshold", 70), 70),
-            "event_conf_cap_high": _si(ai_cfg.get("event_conf_cap_high", 72), 72),
-        }
+    min_dist = float(max(stop_level, freeze_level)) * point
+    if min_dist <= 0:
+        return True, ""  # no restriction
 
-        lot = _sf(cfg_eff.get("lot", 0.01), 0.01)
-        mode0 = str(cfg_eff.get("mode", "") or "")
+    if side == "BUY":
+        if (entry - sl) < min_dist:
+            return False, f"sl_too_close(min_dist={min_dist})"
+        if (tp - entry) < min_dist:
+            return False, f"tp_too_close(min_dist={min_dist})"
+    else:
+        if (sl - entry) < min_dist:
+            return False, f"sl_too_close(min_dist={min_dist})"
+        if (entry - tp) < min_dist:
+            return False, f"tp_too_close(min_dist={min_dist})"
+    return True, ""
 
-        return {
-            "symbol": symbol,
-            "baseline": {
-                "dir": direction,
-                "entry": entry0,
-                "sl": sl0,
-                "tp": tp0,
-                "rr": rr0,
-                "atr": atr,
-                "spread_points": spread_pts,
-                "lot": lot,
-                "mode": mode0,
-            },
-            "execution_context": exec_ctx,
-            "technical": technical,
-            "structure": structure,
-            "context": context,
-            "portfolio": portfolio,
-            "constraints": constraints,
-        }
 
-    # -----------------------------
-    # Validator enforcement (NEW TRADE)
-    # -----------------------------
-    def _validate_ai_execution(self, ai_out: Dict[str, Any], baseline: Dict[str, Any], constraints: Dict[str, Any]) -> Tuple[bool, str]:
-        ex = (ai_out.get("execution") or {})
-        direction = str(baseline.get("dir", "NONE")).upper()
+def _send_market_order(symbol: str, side: str, lot: float, sl: float, tp: float, deviation: int) -> Tuple[bool, str]:
+    tick = mt5.symbol_info_tick(symbol)
+    if tick is None:
+        return False, "no_tick"
 
-        entry0, sl0, tp0 = _sf(baseline.get("entry")), _sf(baseline.get("sl")), _sf(baseline.get("tp"))
-        atr = max(_sf(baseline.get("atr"), 0.0), 1e-9)
-        lot0 = _sf(baseline.get("lot", 0.0), 0.0)
-        mode0 = str(baseline.get("mode", "") or "")
+    if side == "BUY":
+        order_type = mt5.ORDER_TYPE_BUY
+        price = float(tick.ask)
+    else:
+        order_type = mt5.ORDER_TYPE_SELL
+        price = float(tick.bid)
 
-        entry1, sl1, tp1 = _sf(ex.get("entry")), _sf(ex.get("sl")), _sf(ex.get("tp"))
-        rr1 = _sf(ex.get("rr"), 0.0)
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": float(lot),
+        "type": order_type,
+        "price": price,
+        "sl": float(sl),
+        "tp": float(tp),
+        "deviation": int(deviation),
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+        "comment": "HIM v2.8.0",
+    }
 
-        if not _sanity(direction, entry1, sl1, tp1):
-            return False, "sanity_failed"
+    result = mt5.order_send(request)
+    if result is None:
+        return False, "order_send_none"
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
+        return False, f"order_send_failed(retcode={result.retcode})"
+    return True, f"order_ok(ticket={result.order})"
 
-        max_shift = _sf(constraints.get("entry_shift_max_atr", 0.20), 0.20) * atr
-        if abs(entry1 - entry0) > (max_shift + 1e-9):
-            return False, "entry_shift_exceed"
 
-        sl_dist = abs(sl1 - entry1)
-        sl_min = _sf(constraints.get("sl_atr_min", 1.20), 1.20) * atr
-        sl_max = _sf(constraints.get("sl_atr_max", 1.80), 1.80) * atr
-        if sl_dist < (sl_min - 1e-9) or sl_dist > (sl_max + 1e-9):
-            return False, "sl_atr_range_fail"
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-        min_rr = _sf(constraints.get("min_rr", 1.50), 1.50)
-        if rr1 < (min_rr - 1e-9):
-            return False, "rr_below_min"
+    config_path = "config.json"
+    cfg = _load_json(config_path)
+
+    symbol = cfg.get("symbol", "GOLD")
+    mode = cfg.get("mode", "sideway_scalp")
+
+    exec_cfg = cfg.get("execution", {})
+    live = bool(exec_cfg.get("live", False))
+    lot = float(exec_cfg.get("volume", 0.01))
+    max_spread_points = float(exec_cfg.get("max_spread_points", 60))  # คุณปรับได้
+    tick_max_age_sec = int(exec_cfg.get("tick_max_age_sec", 15))
+    deviation = int(exec_cfg.get("deviation", 20))
+    no_duplicate_position = bool(exec_cfg.get("no_duplicate_position", True))
+
+    ai_cfg = cfg.get("ai", {})
+    api_url = ai_cfg.get("api_url", "http://127.0.0.1:5000/api/ai_confirm")
+    timeout_sec = float(ai_cfg.get("timeout_sec", 10))
+
+    LOG.info("HIM Mentor Executor v2.8.0 | symbol=%s | mode=%s | live=%s | lot=%s", symbol, mode, live, lot)
+
+    if not mt5.initialize():
+        LOG.error("MT5 init failed: %s", mt5.last_error())
+        return
+
+    try:
+        _ensure_symbol(symbol)
+
+        stale, stale_reason = _is_tick_stale(symbol, tick_max_age_sec)
+        if stale:
+            LOG.info("DEBUG_SKIP | %s", stale_reason)
+            return
+
+        spread = _get_spread_points(symbol)
+        if spread is None:
+            LOG.info("DEBUG_SKIP | spread_unavailable")
+            return
+        if spread > max_spread_points:
+            LOG.info("DEBUG_SKIP | spread_block spread_points=%.2f > max=%.2f", spread, max_spread_points)
+            return
+
+        if no_duplicate_position and _has_open_position(symbol):
+            LOG.info("DEBUG_SKIP | position_guard already_has_position")
+            return
+
+        # 1) Regime switch
+        decision, err = decide_regime(cfg, symbol)
+        if err:
+            LOG.info("DEBUG_SKIP | regime_error=%s", err)
+            return
+
+        eff_cfg = build_effective_config(cfg, decision)
+        LOG.info(
+            "REGIME | %s | adx=%.2f (max=%.2f) | bb_width_atr=%.3f (max=%.3f) | tf=M%d",
+            decision.regime,
+            decision.adx,
+            decision.adx_max,
+            decision.bb_width_atr,
+            decision.bb_width_atr_max,
+            decision.timeframe_minutes,
+        )
+
+        # 2) Engine
+        from engine import TradingEngine  # import after MT5 init
+
+        # ใช้ effective config แบบ in-memory โดยเขียนไฟล์ชั่วคราวลง .state
+        import os
+
+        os.makedirs(".state", exist_ok=True)
+        eff_path = ".state/effective_config.executor.json"
+        with open(eff_path, "w", encoding="utf-8") as f:
+            json.dump(eff_cfg, f, ensure_ascii=False, indent=2)
+
+        eng = TradingEngine(eff_path)
+        pkg = eng.generate_signal_package()
+        ctx = pkg.get("context", {}) if isinstance(pkg.get("context", {}), dict) else {}
+
+        direction = pkg.get("direction", "NONE")
+        blocked_by = ctx.get("blocked_by")
+        if direction not in ("BUY", "SELL"):
+            LOG.info("DEBUG_SKIP | no_candidate_direction_%s | blocked_by=%s", direction, blocked_by)
+            return
+        if blocked_by not in (None, "", "None"):
+            LOG.info("DEBUG_SKIP | blocked_by=%s", blocked_by)
+            return
 
         engine_order = {
             "direction": direction,
-            "entry": entry0,
-            "sl": sl0,
-            "tp": tp0,
-            "lot": lot0,
-            "atr": atr,
-            "mode": mode0,
-        }
-        ai_payload = {
-            "schema_version": "1.0",
-            "decision": "CONFIRM",
-            "confidence": float(_sf(ex.get("conf"), 0.0)) / 100.0,
-            "direction": direction,
-            "lot": lot0,
-            "entry": entry1,
-            "sl": sl1,
-            "tp": tp1,
-            "note": "executor_mapped",
-        }
-        policy = ValidationPolicy(
-            rr_floor=float(min_rr),
-            entry_shift_max_atr_mult=float(_sf(constraints.get("entry_shift_max_atr", 0.20), 0.20)),
-            entry_shift_max_pct=0.0,
-            enforce_mode_lock=False,
-        )
-        vr = validate_ai_response_v1_0(ai_payload, engine_order, policy=policy)
-
-        if (not vr.ok) or (vr.decision != "CONFIRM"):
-            code = vr.errors[0] if vr.errors else "validator_reject"
-            return False, f"validator_reject:{code}"
-
-        return True, "ok"
-
-    # -----------------------------
-    # Stops / Freeze (new trade pre-check)
-    # -----------------------------
-    def _validate_stops_levels(self, symbol: str, direction: str, entry: float, sl: float, tp: float) -> Tuple[bool, str]:
-        info = self._get_info(symbol)
-        point = float(info.point) if info and info.point else 0.0
-        if point <= 0:
-            return False, "invalid_symbol_point"
-
-        stops_level_points = int(getattr(info, "trade_stops_level", 0) or 0)
-        min_dist = float(stops_level_points) * point
-
-        if direction == "BUY":
-            if not (sl < entry < tp):
-                return False, "sanity_failed_buy"
-            if (entry - sl) < min_dist or (tp - entry) < min_dist:
-                return False, "stop_level_failed"
-        elif direction == "SELL":
-            if not (tp < entry < sl):
-                return False, "sanity_failed_sell"
-            if (sl - entry) < min_dist or (entry - tp) < min_dist:
-                return False, "stop_level_failed"
-        else:
-            return False, "invalid_direction"
-
-        return True, "ok"
-
-    # -----------------------------
-    # Order placement
-    # -----------------------------
-    def _place_market_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> Tuple[bool, str]:
-        tick = mt5.symbol_info_tick(symbol)
-        if not tick:
-            return False, "no_tick"
-
-        price = float(tick.ask) if direction == "BUY" else float(tick.bid)
-        order_type = mt5.ORDER_TYPE_BUY if direction == "BUY" else mt5.ORDER_TYPE_SELL
-
-        req = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": float(lot),
-            "type": order_type,
-            "price": price,
-            "sl": float(sl),
-            "tp": float(tp),
-            "deviation": 20,
-            "magic": 2602,
-            "comment": "HIM",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_FOK,
+            "entry": pkg.get("entry_candidate"),
+            "sl": pkg.get("stop_candidate"),
+            "tp": pkg.get("tp_candidate"),
+            "lot": lot,
+            "mode": mode,
+            "atr": ctx.get("atr"),
         }
 
-        res = mt5.order_send(req)
-        if not res:
-            return False, "order_send_none"
-        if int(res.retcode) != mt5.TRADE_RETCODE_DONE:
-            return False, f"retcode={res.retcode} comment={getattr(res,'comment','')}"
-        return True, "done"
-
-    # -----------------------------
-    # Main loop
-    # -----------------------------
-    def run(self) -> None:
-        if not mt5.initialize():
-            logger.error("MT5 init failed")
+        if any(engine_order[k] is None for k in ("entry", "sl", "tp")):
+            LOG.info("DEBUG_SKIP | engine_missing_fields entry/sl/tp=%s/%s/%s", engine_order["entry"], engine_order["sl"], engine_order["tp"])
             return
 
-        logger.info("MT5 Connected")
-        while True:
-            try:
-                cfg_eff = resolve_effective_config(self.config_path) or {}
-                symbol = str(cfg_eff.get("symbol", "GOLD"))
-                mode = str(cfg_eff.get("mode", "sideway_scalp"))
+        ok_levels, reason_levels = _validate_stop_levels(
+            symbol,
+            float(engine_order["sl"]),
+            float(engine_order["tp"]),
+            float(engine_order["entry"]),
+            direction,
+        )
+        if not ok_levels:
+            LOG.info("DEBUG_SKIP | stop_level_block %s", reason_levels)
+            return
 
-                pkg = self._engine_generate_pkg(symbol=symbol, mode=mode)
-                if not pkg:
-                    time.sleep(0.5)
-                    continue
+        # 3) AI confirm + Validator (fail-closed)
+        ai_decision, ai_payload = confirm_via_api(
+            api_url=api_url,
+            timeout_sec=timeout_sec,
+            engine_order=engine_order,
+        )
 
-                if not pkg.get("direction") or pkg.get("direction") == "NONE":
-                    time.sleep(0.5)
-                    continue
+        if not ai_decision.final_confirm:
+            LOG.info("DEBUG_SKIP | ai_reject_or_validator_reject | hint=%s | ai_payload=%s", ai_decision.mentor_hint, ai_payload)
+            return
 
-                if len(self._positions(symbol)) > 0:
-                    time.sleep(0.5)
-                    continue
+        # 4) Execution
+        if not live:
+            LOG.info(
+                "DRY_RUN_ORDER | side=%s lot=%.2f entry=%.2f sl=%.2f tp=%.2f | conf=%.1f | note=%s",
+                ai_decision.side,
+                lot,
+                ai_decision.entry,
+                ai_decision.sl,
+                ai_decision.tp,
+                ai_decision.confidence,
+                ai_decision.mentor_hint,
+            )
+            return
 
-                ai_pkg = self._build_ai_package(cfg_eff, pkg)
-                ai_out = self.ai.evaluate(ai_pkg)
+        sent, msg = _send_market_order(symbol, ai_decision.side, lot, ai_decision.sl, ai_decision.tp, deviation)
+        if not sent:
+            LOG.error("ORDER_FAIL | %s", msg)
+            return
 
-                baseline = ai_pkg.get("baseline") or {}
-                constraints = ai_pkg.get("constraints") or {}
+        LOG.info("ORDER_OK | %s", msg)
 
-                ok_ai, _ = self._validate_ai_execution(ai_out, baseline, constraints)
-                if not ok_ai:
-                    time.sleep(0.5)
-                    continue
-
-                ex = ai_out.get("execution") or {}
-                direction = str(baseline.get("dir", "NONE")).upper()
-                entry1 = _sf(ex.get("entry"))
-                sl1 = _sf(ex.get("sl"))
-                tp1 = _sf(ex.get("tp"))
-                conf = _si(ex.get("conf"), 0)
-                conf_th = _si(cfg_eff.get("confidence_threshold", 70), 70)
-
-                ok_lv, _ = self._validate_stops_levels(symbol, direction, entry1, sl1, tp1)
-                if not ok_lv:
-                    time.sleep(0.5)
-                    continue
-
-                spread = self._spread_points(symbol)
-                max_spread = _sf(((cfg_eff.get("execution_safety") or {}).get("max_spread_points", 35)), 35)
-                if spread > max_spread:
-                    time.sleep(0.5)
-                    continue
-
-                if conf < conf_th:
-                    time.sleep(0.5)
-                    continue
-
-                lot = _sf(cfg_eff.get("lot", 0.01), 0.01)
-                ok, msg = self._place_market_order(symbol, direction, lot, sl1, tp1)
-
-                mentor = ai_out.get("mentor") or {}
-                mentor_text = (
-                    f"{mentor.get('headline','')}\n"
-                    f"{mentor.get('explanation','')}\n"
-                    f"{mentor.get('action_guidance','')}\n"
-                    f"{mentor.get('confidence_reasoning','')}\n"
-                    f"EXEC={ok} | {msg}"
-                ).strip()
-
-                try:
-                    self.tg.send_text(mentor_text, event_type="trade")
-                except Exception:
-                    pass
-
-                try:
-                    self.tlog.log_trade(
-                        {
-                            "ts": time.time(),
-                            "symbol": symbol,
-                            "dir": direction,
-                            "baseline": {
-                                "entry": _sf(baseline.get("entry")),
-                                "sl": _sf(baseline.get("sl")),
-                                "tp": _sf(baseline.get("tp")),
-                                "rr": _sf(baseline.get("rr")),
-                            },
-                            "ai": {"entry": entry1, "sl": sl1, "tp": tp1, "conf": conf},
-                            "ok": ok,
-                            "msg": msg,
-                            "mentor_headline": mentor.get("headline", ""),
-                            "risk_flags": ((ai_out.get("analysis") or {}).get("risk_flags") or []),
-                        }
-                    )
-                except Exception:
-                    pass
-
-                time.sleep(0.5)
-
-            except KeyboardInterrupt:
-                logger.info("Stopped by user")
-                break
-            except Exception:
-                logger.error("Loop exception:\n" + traceback.format_exc())
-                time.sleep(1.0)
-
-
-def main() -> int:
-    ex = MentorExecutor("config.json")
-    ex.run()
-    return 0
+    finally:
+        mt5.shutdown()
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
