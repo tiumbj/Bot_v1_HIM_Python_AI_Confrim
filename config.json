@@ -124,4 +124,7 @@
   "min_score": 5,
   "lot": 0.01,
   "enable_execution": true
+},
+"dashboard": {
+  "external_url": "https://www.fxstreet.com/markets/commodities/metals/gold"
 }
