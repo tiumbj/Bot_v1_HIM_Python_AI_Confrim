@@ -1,25 +1,29 @@
 """
 Hybrid Intelligence Mentor (HIM)
 File: commissioning_runner.py
-Version: v2.12.5 (Event-Based Commissioning + Gate Observability)
+Version: v2.12.6 (Event-Based Commissioning + Gate Observability + MT5 Time Compatibility)
 Date: 2026-03-02 (Asia/Bangkok)
 
 CHANGELOG
-- v2.12.5:
-  - Add Gate Observability breakdown logging to EVENT details:
-      * htf/mtf/ltf trend direction (best-effort)
-      * ADX value (best-effort)
-      * BB width / ATR (best-effort)
-      * Supertrend direction/state (best-effort)
-      * blocked_by / gates / reasons (best-effort)
-  - Still event-based:
-      * NEW_BAR (per TF)
-      * SIGNAL_CHANGE (stable signature)
-  - No engine schema assumptions: missing fields -> null; never crash runner.
+- v2.12.6:
+  - FIX: MetaTrader5 module in some environments has no mt5.time_current().
+    Implement server_time_epoch() compatibility:
+      * if mt5.time_current exists -> use it
+      * else fallback to int(time.time()) (UTC epoch)
+    tick_age_sec = max(0, server_time - tick.time)
+  - Keep ALL features from v2.12.5:
+      * Event gating: NEW_BAR + SIGNAL_CHANGE
+      * Persistent state: .commission_event_state.json
+      * Logs: logs/commissioning_events.jsonl
+      * Gate Observability: details.signal.obs (best-effort, schema-agnostic)
+      * One-shot mentor_executor.py call on EVENT only
 
 RATIONALE
-- หลัง P0 event-based ผ่านแล้ว ต้องทำ P1: observability เพื่อวิเคราะห์ blocked_by จริง
-- ทำแบบ non-breaking ก่อน เพื่อกัน “แก้ engine แล้วพัง”
+- Restore runtime without downgrading features.
+- Make commissioning stable across MT5 package variants.
+
+SAFETY
+- Fail-closed behavior: stale tick -> no event processing
 """
 
 from __future__ import annotations
@@ -120,8 +124,23 @@ def cfg_get(cfg: Dict[str, Any], keys: List[str], default: Any = None) -> Any:
 
 
 # -----------------------------------------------------------------------------
-# MT5: Tick freshness + bar time
+# MT5: Time compatibility + Tick freshness + bar time
 # -----------------------------------------------------------------------------
+
+def server_time_epoch() -> int:
+    """
+    Compatibility for MT5 variants.
+    Preferred: mt5.time_current() (server time, epoch seconds)
+    Fallback: time.time() (system UTC epoch seconds)
+    """
+    try:
+        fn = getattr(mt5, "time_current", None)
+        if callable(fn):
+            return int(fn())
+    except Exception:
+        pass
+    return int(time.time())
+
 
 @dataclass
 class TickSnapshot:
@@ -138,8 +157,9 @@ def get_tick_snapshot(symbol: str) -> Optional[TickSnapshot]:
     if tick is None:
         return None
 
-    server_time = int(mt5.time_current())
+    # tick.time is epoch seconds (UTC) from server
     tick_time = int(getattr(tick, "time", 0))
+    server_time = server_time_epoch()
 
     age = server_time - tick_time
     if age < 0:
@@ -231,7 +251,7 @@ def save_event_state(path: str, st: EventState) -> None:
         "last_bar_time": st.last_bar_time,
         "last_signature": st.last_signature,
         "ts": utc_iso_now(),
-        "version": "v2.12.5",
+        "version": "v2.12.6",
     })
 
 
@@ -257,10 +277,6 @@ def _first_present(d: Dict[str, Any], candidates: List[List[str]]) -> Any:
 
 
 def build_observability(d: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Return a stable observability dict; missing fields -> None
-    """
-    # trend directions (try multiple schemas)
     htf_dir = _first_present(d, [
         ["structure", "htf", "dir"],
         ["structure", "htf", "direction"],
@@ -283,7 +299,6 @@ def build_observability(d: Dict[str, Any]) -> Dict[str, Any]:
         ["ltf_direction"],
     ])
 
-    # ADX
     adx_val = _first_present(d, [
         ["adx"],
         ["indicators", "adx"],
@@ -293,7 +308,6 @@ def build_observability(d: Dict[str, Any]) -> Dict[str, Any]:
     ])
     adx_val = safe_float(adx_val, None)
 
-    # BB width / ATR (vol expansion)
     bb_width_atr = _first_present(d, [
         ["bb_width_atr"],
         ["indicators", "bb_width_atr"],
@@ -303,7 +317,6 @@ def build_observability(d: Dict[str, Any]) -> Dict[str, Any]:
     ])
     bb_width_atr = safe_float(bb_width_atr, None)
 
-    # Supertrend direction/state
     st_dir = _first_present(d, [
         ["supertrend", "dir"],
         ["supertrend", "direction"],
@@ -311,12 +324,10 @@ def build_observability(d: Dict[str, Any]) -> Dict[str, Any]:
         ["supertrend_dir"],
     ])
 
-    # blocked_by / gates / reasons
     blocked_by = d.get("blocked_by", None)
     gates = d.get("gates", None)
     reasons = d.get("reasons", None)
 
-    # If nested
     if blocked_by is None:
         blocked_by = _first_present(d, [["decision", "blocked_by"], ["audit", "blocked_by"]])
     if gates is None:
@@ -324,7 +335,6 @@ def build_observability(d: Dict[str, Any]) -> Dict[str, Any]:
     if reasons is None:
         reasons = _first_present(d, [["decision", "reasons"], ["audit", "reasons"]])
 
-    # Keep blocked_by stable (avoid huge nested)
     if isinstance(blocked_by, (list, dict)):
         blocked_by = json_dumps_compact(blocked_by)
     if isinstance(gates, (list, dict)):
@@ -332,7 +342,6 @@ def build_observability(d: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(reasons, (list, dict)):
         reasons = json_dumps_compact(reasons)
 
-    # Minimal decision fields
     decision = _first_present(d, [["decision"], ["action"], ["signal"], ["side"]])
 
     return {
@@ -389,7 +398,6 @@ def try_eval_signal_payload(config_path: str) -> Tuple[Optional[Dict[str, Any]],
         if not isinstance(d, dict):
             d = {"repr": repr(d)}
 
-        # reduce extremely large payload
         dbg["top_keys"] = list(d.keys())[:80]
         return d, dbg
 
@@ -400,9 +408,6 @@ def try_eval_signal_payload(config_path: str) -> Tuple[Optional[Dict[str, Any]],
 
 
 def build_stable_signature(signal_dict: Dict[str, Any]) -> str:
-    """
-    Hash only stable decision-related fields to avoid noise.
-    """
     keep = [
         "symbol", "mode",
         "direction", "side", "signal", "decision", "action",
@@ -415,7 +420,6 @@ def build_stable_signature(signal_dict: Dict[str, Any]) -> str:
         if k in signal_dict:
             compact[k] = signal_dict[k]
 
-    # normalize nested
     if "blocked_by" in compact and isinstance(compact["blocked_by"], (list, dict)):
         compact["blocked_by"] = json_dumps_compact(compact["blocked_by"])
     if "gates" in compact and isinstance(compact["gates"], (list, dict)):
@@ -433,12 +437,6 @@ def detect_events(
     st: EventState,
     config_path: str,
 ) -> Tuple[bool, List[str], Dict[str, Any]]:
-    """
-    Returns:
-      fire, reasons, details
-    Note:
-      - First observation initializes state but does NOT fire event (prevents initial burst).
-    """
     reasons: List[str] = []
     details: Dict[str, Any] = {"bars": {}, "signal": {}}
 
@@ -546,7 +544,7 @@ def main() -> int:
     print(json_dumps_compact({
         "ts": utc_iso_now(),
         "msg": "commissioning_runner_start",
-        "version": "v2.12.5",
+        "version": "v2.12.6",
         "config_path": config_path,
         "symbol": symbol,
         "enabled": commissioning_enabled,
