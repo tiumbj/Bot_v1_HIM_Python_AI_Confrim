@@ -1,25 +1,25 @@
 """
 Hybrid Intelligence Mentor (HIM)
 File: mentor_executor.py
-Version: v2.13.3 (Schema-Aligned to generate_signal_package + Evidence-Rich obs + blocked_by dedup)
-Date: 2026-03-02 (Asia/Bangkok)
+Version: v2.13.4 (PRODUCTION MODEL - Schema Router for Engine v2.12.x + Legacy Support)
+Date: 2026-03-03 (Asia/Bangkok)
 
 CHANGELOG
-- v2.13.3:
-  - NEW: Pass-through selected engine context.metrics into obs.metrics (bounded whitelist)
-  - Keep: JSON 1-line compact output only
-  - Keep: Engine method auto-discovery (locks to generate_signal_package)
-  - Safety: Confirm-only (does NOT place orders)
+- v2.13.4:
+  - PRODUCTION: Keep v2.13.3 structure (autodiscovery, compact JSON, fail-closed, engine_dbg)
+  - NEW: Schema Router
+      A) Engine v2.12.x (top-level): decision/blocked_by/gates/metrics
+      B) Legacy schema (context.*): keep extract_from_signal_package()
+  - FIX: Prevent commissioning blindness (decision/blocked_by/obs.metrics/obs.gates no longer null when engine provides them)
+  - SAFETY: confirm-only (does NOT place orders)
 
-EVIDENCE (runtime)
-- Engine schema observed:
-  TOP_KEYS ['symbol','direction','entry_candidate','stop_candidate','tp_candidate','rr','score','confidence_py',
-            'bos','supertrend_ok','context']
-  context.blocked_by present as comma-separated string, with duplicates.
+EVIDENCE (runtime symptom to prevent)
+- Previously executor returned ok=true but decision=null, metrics/gates null in logs (commissioning tools saw null fields).
+- Root cause: extractor assumed legacy 'context' schema; engine v2.12.x returns top-level schema.
 
 SAFETY
 - Confirm-only: does NOT place orders.
-- Fail-closed: exception -> ok=false JSON with short trace.
+- Fail-closed: exception -> ok=false JSON with short trace + engine_dbg.
 """
 
 from __future__ import annotations
@@ -189,7 +189,7 @@ def call_engine_autodiscovery(config_path: str, cfg: Dict[str, Any], symbol: str
     except Exception as ex:
         dbg["errors"].append(f"ctor_path_failed:{type(ex).__name__}:{ex}")
 
-    # NOTE: engine expects path; dict constructor might fail (we record this for evidence)
+    # dict-ctor may succeed for some engines; keep for compatibility
     try:
         if isinstance(cfg, dict) and cfg:
             engine_instances.append(("TradingEngine(config_dict)", TradingEngine(cfg)))
@@ -199,10 +199,7 @@ def call_engine_autodiscovery(config_path: str, cfg: Dict[str, Any], symbol: str
     if not engine_instances:
         return None, dbg
 
-    # Prefer the known-good method name observed in runtime
     preferred = ["generate_signal_package"]
-
-    # Broader fallback patterns (kept small; we already know the real one)
     patterns = ["signal", "package", "eval", "run", "analy", "build"]
 
     def score_name(n: str) -> int:
@@ -241,15 +238,15 @@ def call_engine_autodiscovery(config_path: str, cfg: Dict[str, Any], symbol: str
 
 
 # -----------------------------------------------------------------------------
-# Schema-aligned extraction for generate_signal_package()
+# Schema-aligned extraction (Legacy: context.*)
 # -----------------------------------------------------------------------------
 
 def extract_from_signal_package(pkg: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Align to observed schema:
-    TOP_KEYS:
-      symbol, direction, entry_candidate, stop_candidate, tp_candidate, rr, score, confidence_py,
-      bos, supertrend_ok, context{blocked_by, HTF_trend, MTF_trend, LTF_trend, mode, ... , gates{...}, atr, ...}
+    Legacy schema alignment (kept from v2.13.3):
+    Expected:
+      pkg: direction, entry_candidate, stop_candidate, tp_candidate, rr, score, confidence_py,
+      ctx: context{blocked_by,gates,metrics,...}
     """
     ctx = pkg.get("context", {})
     if not isinstance(ctx, dict):
@@ -257,42 +254,34 @@ def extract_from_signal_package(pkg: Dict[str, Any]) -> Dict[str, Any]:
 
     blocked_by_list = normalize_blocked_by(ctx.get("blocked_by"))
 
-    # Core decision semantics
     direction = pkg.get("direction", None)  # e.g. BUY/SELL/NONE
     decision = direction
 
-    # Plan candidates
     entry = pkg.get("entry_candidate", None)
     sl = pkg.get("stop_candidate", None)
     tp = pkg.get("tp_candidate", None)
     rr = safe_float(pkg.get("rr", None), 0.0) or 0.0
 
-    # Confidence
     score = safe_float(pkg.get("score", None), 0.0) or 0.0
     confidence_py = safe_int(pkg.get("confidence_py", None), 0) or 0
 
-    # Structure trends (already present as strings)
     htf_trend = ctx.get("HTF_trend", None)
     mtf_trend = ctx.get("MTF_trend", None)
     ltf_trend = ctx.get("LTF_trend", None)
 
-    # Supertrend evidence
     supertrend_dir = ctx.get("supertrend_dir", None)
     supertrend_value = safe_float(ctx.get("supertrend_value", None), None)
     supertrend_ok = pkg.get("supertrend_ok", None)
 
-    # Vol/Trend metrics in context
     atr = safe_float(ctx.get("atr", None), None)
     atr_period = safe_int(ctx.get("atr_period", None), None)
     atr_sl_mult = safe_float(ctx.get("atr_sl_mult", None), None)
     min_rr = safe_float(ctx.get("min_rr", None), None)
 
-    # Gates dictionary
     gates = ctx.get("gates", None)
     if not isinstance(gates, dict):
         gates = {}
 
-    # context.metrics (newer engines may provide this)
     ctx_metrics = ctx.get("metrics", None)
     if not isinstance(ctx_metrics, dict):
         ctx_metrics = {}
@@ -310,14 +299,11 @@ def extract_from_signal_package(pkg: Dict[str, Any]) -> Dict[str, Any]:
             "ltf_trend": ltf_trend,
         },
         "metrics": {
-            # Base metrics (backward compatible)
             "atr": atr,
             "atr_period": atr_period,
             "supertrend_dir": supertrend_dir,
             "supertrend_value": supertrend_value,
 
-            # Forward-compatible visibility (pass-through from engine.context.metrics when present)
-            # NOTE: We keep a bounded whitelist to avoid dumping huge objects.
             "event_timeframe": ctx_metrics.get("event_timeframe", None),
             "bb_width_points": ctx_metrics.get("bb_width_points", None),
             "bb_width_atr": ctx_metrics.get("bb_width_atr", None),
@@ -342,7 +328,6 @@ def extract_from_signal_package(pkg: Dict[str, Any]) -> Dict[str, Any]:
             "blocked_by": blocked_by_list,
             "supertrend_ok": supertrend_ok,
             "supertrend_conflict": ctx_metrics.get("supertrend_conflict", None),
-            # expand booleans if present
             "bias_ok": gates.get("bias_ok", None),
             "vol_expansion_ok": gates.get("vol_expansion_ok", None),
             "bos_ok": gates.get("bos_ok", None),
@@ -360,11 +345,137 @@ def extract_from_signal_package(pkg: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "decision": decision,
         "blocked_by": blocked_by_list,
-        "confidence": score,            # canonical float score
-        "confidence_py": confidence_py, # raw int evidence
+        "confidence": score,
+        "confidence_py": confidence_py,
         "plan": {"entry": entry, "sl": sl, "tp": tp, "rr": rr},
         "obs": obs,
     }
+
+
+# -----------------------------------------------------------------------------
+# Schema Router (NEW: Engine v2.12.x top-level schema)
+# -----------------------------------------------------------------------------
+
+def is_engine_v212_schema(pkg: Dict[str, Any]) -> bool:
+    # Engine v2.12.x returns top-level: decision/blocked_by/gates/metrics
+    if not isinstance(pkg, dict):
+        return False
+    if "decision" not in pkg:
+        return False
+    if "blocked_by" not in pkg:
+        return False
+    if "gates" not in pkg:
+        return False
+    return True
+
+
+def extract_from_engine_v212(pkg: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Engine v2.12.x schema:
+      decision: "BLOCKED" | "PASS"
+      blocked_by: list[str]
+      gates: dict
+      metrics: dict
+    We map to mentor schema while keeping stable keys used by tools.
+    """
+    decision = pkg.get("decision", None)
+    blocked_by_list = normalize_blocked_by(pkg.get("blocked_by", []))
+
+    metrics = pkg.get("metrics", {})
+    if not isinstance(metrics, dict):
+        metrics = {}
+
+    gates_src = pkg.get("gates", {})
+    if not isinstance(gates_src, dict):
+        gates_src = {}
+
+    # Keep obs layout similar to legacy (structure/thresholds can be None here, but key must exist)
+    obs = {
+        "engine_version": pkg.get("engine_version", None),
+        "mode": None,
+        "bias_source": None,
+        "direction_bias": pkg.get("bias", None),
+        "watch_state": None,
+
+        "structure": {
+            "htf_trend": None,
+            "mtf_trend": None,
+            "ltf_trend": None,
+        },
+        "metrics": {
+            # minimal commissioning-critical metrics
+            "atr": safe_float(cfg_get(pkg, ["price", "atr"], None), None),
+            "atr_period": None,
+
+            "supertrend_dir": metrics.get("supertrend_dir_event", None),
+            "supertrend_value": None,
+
+            "event_timeframe": pkg.get("event_timeframe", None),
+            "bb_width_points": None,
+            "bb_width_atr": metrics.get("bb_width_atr", None),
+            "bb_width_atr_min": metrics.get("bb_width_atr_min_used", None),
+
+            "vol_expansion_score": None,
+            "vol_expansion_threshold": metrics.get("bb_width_atr_min_used", None),
+            "vol_expansion_margin": None,
+
+            "adx": None,
+            "plus_di": None,
+            "minus_di": None,
+
+            "supertrend_conflict": gates_src.get("supertrend_conflict", None),
+            "supertrend_distance_points": None,
+            "supertrend_distance_atr": metrics.get("supertrend_distance_atr", None),
+        },
+        "thresholds": {
+            "atr_sl_mult": None,
+            "min_rr": None,
+        },
+        "gates": {
+            "blocked_by": blocked_by_list,
+            "supertrend_ok": gates_src.get("supertrend_ok", None),
+            "supertrend_conflict": gates_src.get("supertrend_conflict", None),
+
+            # keep legacy key names (tools expect these keys to exist)
+            "bias_ok": gates_src.get("bias_ok", None),
+            "vol_expansion_ok": gates_src.get("vol_expansion_ok", None),
+
+            "bos_ok": gates_src.get("bos_ok", None),
+            "bos_break_ok": gates_src.get("bos_break_ok", None),
+
+            "retest_checked": gates_src.get("retest_checked", None),
+            "retest_ok": gates_src.get("retest_ok", None),
+            "retest_bypass_reason": gates_src.get("retest_bypass_reason", None),
+
+            "proximity_checked": gates_src.get("proximity_checked", None),
+            "proximity_ok": gates_src.get("proximity_ok", None),
+            "proximity_bypass_reason": gates_src.get("proximity_bypass_reason", None),
+
+            "rr_ok": gates_src.get("rr_ok", None),
+        }
+    }
+
+    # plan: engine v2.12.x may not provide entry/sl/tp; keep schema stable
+    rr_val = safe_float(metrics.get("rr", None), None)
+    plan = {"entry": None, "sl": None, "tp": None, "rr": (rr_val if rr_val is not None else 0.0)}
+
+    # confidence: engine v2.12.x doesn't provide score by default; keep 0.0
+    confidence = safe_float(metrics.get("score", 0.0), 0.0) or 0.0
+
+    return {
+        "decision": decision,
+        "blocked_by": blocked_by_list,
+        "confidence": confidence,
+        "confidence_py": 0,
+        "plan": plan,
+        "obs": obs,
+    }
+
+
+def extract_router(pkg: Dict[str, Any]) -> Dict[str, Any]:
+    if is_engine_v212_schema(pkg):
+        return extract_from_engine_v212(pkg)
+    return extract_from_signal_package(pkg)
 
 
 # -----------------------------------------------------------------------------
@@ -389,7 +500,7 @@ def main() -> int:
         payload = {
             "ts": utc_iso_now(),
             "type": "MENTOR_EXECUTOR",
-            "version": "v2.13.3",
+            "version": "v2.13.4",
             "ok": False,
             "symbol": symbol_cfg,
             "live": live,
@@ -401,25 +512,25 @@ def main() -> int:
         print(json_dumps_compact(payload))
         return 2
 
-    # Extract (schema-aligned)
-    ex = extract_from_signal_package(pkg)
+    # Schema Router (PRODUCTION)
+    ex = extract_router(pkg)
 
     payload = {
         "ts": utc_iso_now(),
         "type": "MENTOR_EXECUTOR",
-        "version": "v2.13.3",
+        "version": "v2.13.4",
         "ok": True,
         "symbol": str(pkg.get("symbol", symbol_cfg)),
         "live": live,
         "lot": lot,
         "elapsed_ms": int((time.time() - t0) * 1000),
 
-        "decision": ex["decision"],
-        "blocked_by": ex["blocked_by"],
-        "confidence": ex["confidence"],
-        "confidence_py": ex["confidence_py"],
-        "plan": ex["plan"],
-        "obs": ex["obs"],
+        "decision": ex.get("decision", None),
+        "blocked_by": ex.get("blocked_by", []),
+        "confidence": ex.get("confidence", 0.0),
+        "confidence_py": ex.get("confidence_py", 0),
+        "plan": ex.get("plan", {"entry": None, "sl": None, "tp": None, "rr": 0.0}),
+        "obs": ex.get("obs", {}),
 
         # Debug (short + useful)
         "engine_dbg": engine_dbg,
@@ -438,7 +549,7 @@ if __name__ == "__main__":
         payload = {
             "ts": utc_iso_now(),
             "type": "MENTOR_EXECUTOR",
-            "version": "v2.13.3",
+            "version": "v2.13.4",
             "ok": False,
             "error": f"UNCAUGHT:{type(e).__name__}:{e}",
             "trace": traceback.format_exc(limit=3),
