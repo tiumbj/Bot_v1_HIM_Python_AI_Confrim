@@ -16,14 +16,15 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
-import traceback
 import threading
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Callable
 
 from flask import Flask, jsonify, request, redirect
+from urllib.request import Request, urlopen
 
 # ----------------------------
 # Constants
@@ -60,6 +61,24 @@ def _append_jsonl(path: str, obj: Dict[str, Any]) -> None:
     except Exception:
         # do not crash server for logging errors
         pass
+
+
+def _telegram_send_startup(text: str) -> None:
+    if os.environ.get("API_STARTUP_NOTIFY", "1").strip() not in ("1", "true", "TRUE", "yes", "YES"):
+        return
+    token = (os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN") or os.environ.get("TELEGRAM_API_TOKEN") or "").strip()
+    chat_id = (os.environ.get("TELEGRAM_TRADE_CHAT_ID") or os.environ.get("TELEGRAM_CHAT_ID") or os.environ.get("CHAT_ID") or "").strip()
+    if not token or not chat_id:
+        return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = Request(url, method="POST", data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urlopen(req, timeout=10) as _:
+            return
+    except Exception:
+        return
 
 
 def _ok(data: Any = None, **meta: Any):
@@ -178,14 +197,43 @@ class EngineAdapter:
         self._cached: Optional[Callable[..., Dict[str, Any]]] = None
         self._cached_signature: str = ""
 
-    def generate_signal_package(self) -> Tuple[bool, Dict[str, Any], str]:
+    @staticmethod
+    def _normalize_tf(v: Any) -> str:
+        s = str(v or "").strip().upper()
+        if s in ("M10", "M15", "M30", "H1", "H4", "M5", "M1", "D1"):
+            return s
+        return ""
+
+    def _decision_timeframes(self, cfg: Dict[str, Any]) -> list[str]:
+        raw = cfg.get("decision_timeframes")
+        out: list[str] = []
+        if isinstance(raw, list):
+            for x in raw:
+                tf = self._normalize_tf(x)
+                if tf and tf not in out:
+                    out.append(tf)
+        if not out:
+            out = ["M10", "M15", "M30", "H1"]
+        return out
+
+    def _decision_min_agree(self, cfg: Dict[str, Any], n: int) -> int:
+        try:
+            v = int(cfg.get("decision_min_agree", 2))
+        except Exception:
+            v = 2
+        if v < 1:
+            v = 1
+        if v > n:
+            v = n
+        return v
+
+    def generate_signal_package(self, event_timeframe_override: Optional[str] = None) -> Tuple[bool, Dict[str, Any], str]:
         """
         Returns: (ok, payload, reason)
         """
         try:
             fn = self._get_callable()
             cfg = self.config_mgr.get()
-            # Decide args: prefer event_timeframe from config if present
             event_tf = None
             try:
                 event_tf = (
@@ -195,16 +243,72 @@ class EngineAdapter:
                 )
             except Exception:
                 event_tf = None
+            if event_timeframe_override:
+                event_tf = self._normalize_tf(event_timeframe_override)
 
-            # Try calling with best-effort signatures:
-            # 1) generate_signal_package(event_timeframe="M1")
-            # 2) generate_signal_package()
             if event_tf:
                 try:
                     pkg = fn(event_timeframe=str(event_tf))
                     return True, self._normalize_signal(pkg), "ok"
                 except TypeError:
                     pass
+                except Exception:
+                    return False, {}, "engine_error: event_timeframe_call_failed"
+
+            tfs = self._decision_timeframes(cfg)
+            min_agree = self._decision_min_agree(cfg, len(tfs))
+            per_tf: dict[str, Dict[str, Any]] = {}
+            for tf in tfs:
+                try:
+                    pkg = fn(event_timeframe=tf)
+                except TypeError:
+                    try:
+                        pkg = fn()
+                    except Exception:
+                        continue
+                except Exception:
+                    continue
+                norm = self._normalize_signal(pkg)
+                norm["event_timeframe"] = tf
+                per_tf[tf] = norm
+
+            if per_tf:
+                votes_buy = [tf for tf, p in per_tf.items() if str(p.get("decision")).upper() == "BUY"]
+                votes_sell = [tf for tf, p in per_tf.items() if str(p.get("decision")).upper() == "SELL"]
+                final_side = "HOLD"
+                if len(votes_buy) >= min_agree and len(votes_sell) == 0:
+                    final_side = "BUY"
+                elif len(votes_sell) >= min_agree and len(votes_buy) == 0:
+                    final_side = "SELL"
+
+                chosen_tf = tfs[-1]
+                if final_side in ("BUY", "SELL"):
+                    agree_tfs = votes_buy if final_side == "BUY" else votes_sell
+                    for tf in reversed(tfs):
+                        if tf in agree_tfs:
+                            chosen_tf = tf
+                            break
+                chosen = dict(per_tf.get(chosen_tf) or next(iter(per_tf.values())))
+                if final_side == "HOLD":
+                    chosen["decision"] = "HOLD"
+                    chosen["blocked_by"] = ["multi_tf_no_consensus"]
+                else:
+                    chosen["decision"] = final_side
+                    chosen["blocked_by"] = []
+                chosen["event_timeframe"] = chosen_tf
+                chosen["multi_tf"] = {
+                    tf: {
+                        "decision": per_tf[tf].get("decision"),
+                        "blocked_by": per_tf[tf].get("blocked_by"),
+                        "regime": (per_tf[tf].get("metrics") or {}).get("regime") if isinstance(per_tf[tf].get("metrics"), dict) else None,
+                        "st_dir": (per_tf[tf].get("metrics") or {}).get("supertrend_dir_event") if isinstance(per_tf[tf].get("metrics"), dict) else None,
+                        "align": (per_tf[tf].get("metrics") or {}).get("alignment_score") if isinstance(per_tf[tf].get("metrics"), dict) else None,
+                    }
+                    for tf in tfs
+                    if tf in per_tf
+                }
+                chosen["decision_votes"] = {"BUY": len(votes_buy), "SELL": len(votes_sell), "min_agree": min_agree}
+                return True, chosen, "ok"
 
             pkg = fn()
             return True, self._normalize_signal(pkg), "ok"
@@ -302,9 +406,35 @@ class EngineAdapter:
         }
 
         # Optional fields (keep if present)
-        for k in ("confidence", "metrics", "blocked_by", "context", "source", "symbol", "timeframe", "ts"):
+        for k in (
+            "confidence",
+            "metrics",
+            "blocked_by",
+            "context",
+            "source",
+            "symbol",
+            "timeframe",
+            "event_timeframe",
+            "timeframes",
+            "engine_version",
+            "bias",
+            "status",
+            "gates",
+            "price",
+            "ts",
+            "ts_ms",
+            "latency_ms",
+        ):
             if k in raw:
                 out[k] = raw.get(k)
+
+        if isinstance(out.get("price"), dict):
+            atr = _safe_float((out.get("price") or {}).get("atr"))
+            if atr is not None:
+                metrics = out.get("metrics") if isinstance(out.get("metrics"), dict) else {}
+                if "atr" not in metrics:
+                    metrics = {**metrics, "atr": atr}
+                out["metrics"] = metrics
 
         return out
 
@@ -331,52 +461,78 @@ class AIConfirmer:
         cfg = self.config_mgr.get()
         ai_cfg = cfg.get("ai_confirm", {}) if isinstance(cfg.get("ai_confirm", {}), dict) else {}
 
-        # 1) External proxy (optional)
-        external_url = ai_cfg.get("external_url") or ai_cfg.get("api_url")
-        if isinstance(external_url, str) and external_url.strip():
-            ok, out = self._proxy_confirm(external_url.strip(), payload, timeout_sec=float(ai_cfg.get("timeout_sec", 8.0)))
-            if ok:
-                return self._sanitize_ai_response(out)
-            return {"approved": False, "reason": "ai_proxy_failed", "confidence": None}
+        use_llm = bool(ai_cfg.get("use_llm") is True) or (os.environ.get("AI_CONFIRM_USE_LLM", "0").strip() in ("1", "true", "TRUE", "yes", "YES"))
+        if use_llm:
+            ok_llm, llm_out = self._llm_confirm(payload, ai_cfg)
+            if ok_llm and isinstance(llm_out, dict):
+                out = self._sanitize_ai_response(llm_out)
+                out["provider"] = str(llm_out.get("provider") or llm_out.get("api_meta", {}).get("provider") or "llm")[:80]
+                out["model"] = str(llm_out.get("model") or llm_out.get("api_meta", {}).get("model") or "")[:80]
+                if isinstance(llm_out.get("confirmed_plan"), dict):
+                    out["confirmed_plan"] = llm_out.get("confirmed_plan")
+                if isinstance(llm_out.get("bullets"), list):
+                    out["bullets"] = [str(x)[:140] for x in llm_out.get("bullets")[:3]]
+                return out
 
-        # 2) Local confirm policy (fail-closed)
+        out = self._local_confirm(payload, ai_cfg)
+        if use_llm:
+            out = {**out, "provider": "local_policy_fallback", "model": None}
+            if out.get("approved") is True:
+                out["reason"] = "llm_unavailable_fallback"
+        else:
+            out = {**out, "provider": "local_policy", "model": None}
+        return out
+
+    @staticmethod
+    def _local_confirm(payload: Dict[str, Any], ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
         decision = _upper_str(payload.get("decision"))
         plan = payload.get("plan", {}) if isinstance(payload.get("plan", {}), dict) else {}
+        metrics = payload.get("metrics", {}) if isinstance(payload.get("metrics", {}), dict) else {}
+        blocked_by = payload.get("blocked_by")
+        if blocked_by is None:
+            blocked_by = payload.get("blocked_list") or payload.get("blocked") or []
+        if not isinstance(blocked_by, list):
+            blocked_by = []
+        if blocked_by:
+            return {"approved": False, "reason": "blocked_by_present", "confidence": None}
+
+        if decision not in ("BUY", "SELL"):
+            return {"approved": False, "reason": "decision_not_trade", "confidence": None}
+
         entry = _safe_float(plan.get("entry"))
         sl = _safe_float(plan.get("sl"))
         tp = _safe_float(plan.get("tp"))
-        conf = _safe_float(payload.get("confidence"))
-        metrics = payload.get("metrics", {}) if isinstance(payload.get("metrics", {}), dict) else {}
+        if entry is None or sl is None or tp is None:
+            return {"approved": False, "reason": "plan_missing", "confidence": None}
+
+        if decision == "BUY" and not (sl < entry < tp):
+            return {"approved": False, "reason": "plan_invalid_buy", "confidence": None}
+        if decision == "SELL" and not (tp < entry < sl):
+            return {"approved": False, "reason": "plan_invalid_sell", "confidence": None}
+
         rr = _safe_float(metrics.get("rr"))
+        if rr is None:
+            risk = abs(entry - sl)
+            reward = abs(tp - entry)
+            rr = (reward / risk) if (risk and risk > 0) else None
 
-        # thresholds (safe defaults)
-        min_conf = _safe_float(ai_cfg.get("min_confidence"))  # None allowed
-        min_rr = _safe_float(ai_cfg.get("min_rr"))            # None allowed
+        min_rr = _safe_float(ai_cfg.get("min_rr"))
+        if min_rr is None:
+            min_rr = _safe_float(payload.get("min_rr"))
+        if min_rr is not None and rr is not None and rr < float(min_rr):
+            return {"approved": False, "reason": "rr_too_low", "confidence": None}
 
-        reasons = []
+        min_conf = _safe_float(ai_cfg.get("min_confidence"))
+        if min_conf is None:
+            return {"approved": True, "reason": "local_policy_ok", "confidence": None}
 
-        if decision not in ("BUY", "SELL"):
-            reasons.append("decision_not_trade")
-        if sl is None or tp is None or (sl <= 0) or (tp <= 0):
-            reasons.append("plan_sl_tp_invalid")
-        if entry is not None and sl is not None and tp is not None:
-            if decision == "BUY" and not (sl < entry < tp):
-                reasons.append("invalid_stops_side_buy")
-            if decision == "SELL" and not (tp < entry < sl):
-                reasons.append("invalid_stops_side_sell")
+        conf = _safe_float(payload.get("confidence"))
+        if conf is None:
+            conf = _safe_float(metrics.get("confidence"))
+        if conf is None or conf < float(min_conf):
+            return {"approved": False, "reason": "confidence_too_low", "confidence": conf}
 
-        if min_rr is not None:
-            if rr is None or rr < min_rr:
-                reasons.append("rr_below_min")
-
-        if min_conf is not None:
-            if conf is None or conf < min_conf:
-                reasons.append("confidence_below_min")
-
-        if reasons:
-            return {"approved": False, "reason": ";".join(reasons)[:500], "confidence": conf}
-
-        return {"approved": True, "reason": "approved_by_local_policy", "confidence": conf}
+        return {"approved": True, "reason": "local_policy_ok", "confidence": conf}
 
     @staticmethod
     def _sanitize_ai_response(raw: Any) -> Dict[str, Any]:
@@ -394,6 +550,307 @@ class AIConfirmer:
                 "confidence": _safe_float(confidence),
             }
         return {"approved": False, "reason": "ai_response_invalid", "confidence": None}
+
+    @staticmethod
+    def _build_llm_prompt(payload: Dict[str, Any], policy: Dict[str, Any]) -> str:
+        decision = _upper_str(payload.get("decision"))
+        symbol = str(payload.get("symbol") or payload.get("sym") or "GOLD")[:32]
+        plan = payload.get("plan", {}) if isinstance(payload.get("plan", {}), dict) else {}
+        metrics = payload.get("metrics", {}) if isinstance(payload.get("metrics", {}), dict) else {}
+        blocked_by = payload.get("blocked_by")
+        if blocked_by is None:
+            blocked_by = payload.get("blocked_list") or payload.get("blocked") or []
+        if not isinstance(blocked_by, list):
+            blocked_by = []
+
+        entry = _safe_float(plan.get("entry"))
+        sl = _safe_float(plan.get("sl"))
+        tp = _safe_float(plan.get("tp"))
+        rr = _safe_float(metrics.get("rr"))
+        regime = str(metrics.get("regime") or metrics.get("regime_candidate") or "")[:24]
+        align = metrics.get("alignment_score")
+        st_dir = metrics.get("supertrend_dir_event")
+        st_dist = _safe_float(metrics.get("supertrend_distance_atr"))
+        bbw = _safe_float(metrics.get("bb_width_atr"))
+        atr = _safe_float(metrics.get("atr") or metrics.get("atr_event") or payload.get("atr"))
+        if atr is None:
+            price = payload.get("price", {}) if isinstance(payload.get("price", {}), dict) else {}
+            atr = _safe_float(price.get("atr"))
+        if atr is None:
+            ctx = payload.get("context", {}) if isinstance(payload.get("context", {}), dict) else {}
+            event_tf = str(payload.get("event_timeframe") or payload.get("timeframe") or ctx.get("event_timeframe") or "M1").upper()
+            tfs = ctx.get("tfs")
+            if isinstance(tfs, list):
+                for row in tfs:
+                    if isinstance(row, dict) and str(row.get("tf") or "").upper() == event_tf:
+                        atr = _safe_float(row.get("atr"))
+                        break
+
+        min_rr = _safe_float(policy.get("min_rr"))
+        shift_atr = _safe_float(policy.get("entry_shift_max_atr"))
+
+        def f(x: Any) -> str:
+            v = _safe_float(x)
+            if v is None:
+                return "-"
+            return f"{float(v):.4f}"
+
+        blocked_str = ",".join([str(x)[:24] for x in blocked_by[:6]])
+        prompt = (
+            "TASK: You are the FINAL CONFIRM layer for an automated trading bot.\n"
+            "Output JSON only.\n\n"
+            "Goal:\n"
+            "Approve or deny the locked trade plan and return a confirmed entry/sl/tp.\n\n"
+            "Rules:\n"
+            f"- symbol={symbol}\n"
+            "- direction is LOCKED; do not flip BUY/SELL\n"
+            f"- if blocked_by is not empty => deny\n"
+            f"- entry shift <= {f(shift_atr)} * ATR; if ATR missing, do not shift entry\n"
+            f"- SL tighten-only=true; never widen risk\n"
+            f"- RR must be >= {f(min_rr)} if provided\n"
+            "- do not deny solely due to large supertrend_distance_atr; use it as risk note\n"
+            "- deny only if direction conflicts with supertrend_dir_event OR RR fails OR blocked_by not empty\n"
+            "- keep explanation concise to reduce token cost\n\n"
+            "Output JSON schema:\n"
+            "{\n"
+            '  \"approved\": true|false,\n'
+            '  \"confidence\": 0.0-1.0,\n'
+            '  \"reason\": \"short <=120 chars\",\n'
+            '  \"bullets\": [\"<=3 concise technical suggestions\"],\n'
+            '  \"confirmed_plan\": {\"entry\":number,\"sl\":number,\"tp\":number}\n'
+            "}\n\n"
+            "Guidelines for bullets:\n"
+            "- short technical advice only\n"
+            "- max 8 words each\n"
+            "- no long sentences\n\n"
+            "Input snapshot:\n"
+            f"- decision={decision}\n"
+            f"- plan: entry={f(entry)} sl={f(sl)} tp={f(tp)}\n"
+            f"- atr={f(atr)} rr={f(rr)} regime={regime or '-'} alignment={str(align)[:8]}\n"
+            f"- supertrend_dir_event={str(st_dir)[:8]}\n"
+            f"- supertrend_distance_atr={f(st_dist)}\n"
+            f"- bb_width_atr={f(bbw)}\n"
+            f"- blocked_by={blocked_str or '-'}\n"
+        )
+        return prompt
+
+    @staticmethod
+    def _llm_http_chat_completions(
+        *,
+        url: str,
+        api_key: str,
+        model: str,
+        system_text: str,
+        user_text: str,
+        temperature: float,
+        max_tokens: int,
+        timeout_sec: float,
+    ) -> Tuple[bool, Any]:
+        try:
+            req_payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_text},
+                    {"role": "user", "content": user_text},
+                ],
+                "temperature": float(temperature),
+                "max_tokens": int(max_tokens),
+            }
+            data = json.dumps(req_payload, ensure_ascii=False).encode("utf-8")
+            req = Request(
+                url=url,
+                data=data,
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+                method="POST",
+            )
+            with urlopen(req, timeout=timeout_sec) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+            try:
+                return True, json.loads(body)
+            except Exception:
+                return True, body
+        except Exception as e:
+            return False, str(e)
+
+    @staticmethod
+    def _extract_llm_json(raw: Any) -> Tuple[bool, Dict[str, Any]]:
+        if isinstance(raw, dict):
+            try:
+                choices = raw.get("choices")
+                if isinstance(choices, list) and choices:
+                    msg = choices[0].get("message", {})
+                    if isinstance(msg, dict):
+                        content = msg.get("content")
+                        if isinstance(content, str) and content.strip():
+                            s = content.strip()
+                            try:
+                                return True, json.loads(s)
+                            except Exception:
+                                pass
+
+                            if s.startswith("```"):
+                                s2 = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", s)
+                                s2 = re.sub(r"\s*```$", "", s2)
+                                s2 = s2.strip()
+                                try:
+                                    return True, json.loads(s2)
+                                except Exception:
+                                    pass
+
+                            m = re.search(r"\{[\s\S]*\}", s)
+                            if m:
+                                try:
+                                    return True, json.loads(m.group(0))
+                                except Exception:
+                                    pass
+            except Exception:
+                pass
+        if isinstance(raw, str):
+            s = raw.strip()
+            if not s:
+                return False, {}
+            try:
+                return True, json.loads(s)
+            except Exception:
+                if s.startswith("```"):
+                    s2 = re.sub(r"^```[a-zA-Z0-9_-]*\s*", "", s)
+                    s2 = re.sub(r"\s*```$", "", s2)
+                    s2 = s2.strip()
+                    try:
+                        return True, json.loads(s2)
+                    except Exception:
+                        pass
+
+                m = re.search(r"\{[\s\S]*\}", s)
+                if m:
+                    try:
+                        return True, json.loads(m.group(0))
+                    except Exception:
+                        pass
+                return False, {}
+        return False, {}
+
+    def _llm_confirm(self, payload: Dict[str, Any], ai_cfg: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+        provider = str(ai_cfg.get("provider") or os.environ.get("AI_PROVIDER") or "deepseek").strip().lower()
+        if provider not in ("deepseek", "openai", "compatible"):
+            provider = "deepseek"
+
+        api_url = str(ai_cfg.get("llm_api_url") or os.environ.get("AI_API_URL") or os.environ.get("DEEPSEEK_API_URL") or "https://api.deepseek.com/v1/chat/completions").strip()
+        model = str(ai_cfg.get("llm_model") or os.environ.get("AI_MODEL") or "deepseek-chat").strip()
+        key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("AI_API_KEY") or ""
+        key = str(key).strip()
+        if not key or not api_url:
+            return False, {}
+
+        policy = {
+            "min_rr": ai_cfg.get("min_rr"),
+            "entry_shift_max_atr": ai_cfg.get("entry_shift_max_atr", 0.2),
+            "sl_tighten_only": True,
+        }
+
+        user_text = self._build_llm_prompt(payload, policy)
+        system_text = "You are a strict risk manager. Return JSON only. No markdown."
+        timeout_sec = float(ai_cfg.get("llm_timeout_sec") or ai_cfg.get("timeout_sec") or 8.0)
+        max_tokens = int(ai_cfg.get("llm_max_tokens") or 220)
+        temperature = float(ai_cfg.get("llm_temperature") or 0.1)
+
+        ok, raw = self._llm_http_chat_completions(
+            url=api_url,
+            api_key=key,
+            model=model,
+            system_text=system_text,
+            user_text=user_text,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout_sec=timeout_sec,
+        )
+        if not ok:
+            return False, {}
+
+        okj, out = self._extract_llm_json(raw)
+        if not okj:
+            return False, {}
+
+        approved = out.get("approved")
+        decision = str(out.get("decision") or "").strip().upper()
+        if approved is None and decision:
+            out["approved"] = decision == "CONFIRM"
+
+        if not isinstance(out.get("confidence"), (int, float)):
+            out["confidence"] = 0.0
+        try:
+            c = float(out.get("confidence"))
+            if c < 0.0:
+                c = 0.0
+            if c > 1.0:
+                c = 1.0
+            out["confidence"] = c
+        except Exception:
+            out["confidence"] = 0.0
+
+        reason = out.get("reason")
+        if not isinstance(reason, str):
+            reason = str(reason or "")
+        out["reason"] = reason.strip()[:120]
+
+        bullets = out.get("bullets")
+        if isinstance(bullets, list):
+            cleaned = []
+            for b in bullets:
+                if not isinstance(b, str):
+                    continue
+                words = [w for w in b.strip().split() if w]
+                cleaned.append(" ".join(words[:8])[:140])
+                if len(cleaned) >= 3:
+                    break
+            out["bullets"] = cleaned
+        else:
+            out["bullets"] = []
+
+        plan = payload.get("plan", {}) if isinstance(payload.get("plan", {}), dict) else {}
+        base_entry = _safe_float(plan.get("entry"))
+        base_sl = _safe_float(plan.get("sl"))
+        base_tp = _safe_float(plan.get("tp"))
+
+        confirmed_plan = out.get("confirmed_plan")
+        if not isinstance(confirmed_plan, dict):
+            confirmed_plan = {}
+        c_entry = _safe_float(confirmed_plan.get("entry"))
+        c_sl = _safe_float(confirmed_plan.get("sl"))
+        c_tp = _safe_float(confirmed_plan.get("tp"))
+        if c_entry is None:
+            c_entry = base_entry
+        if c_sl is None:
+            c_sl = base_sl
+        if c_tp is None:
+            c_tp = base_tp
+
+        if c_entry is None or c_sl is None or c_tp is None:
+            return False, {}
+
+        decision_dir = _upper_str(payload.get("decision"))
+        if decision_dir == "BUY":
+            if not (c_sl < c_entry < c_tp):
+                return False, {}
+        if decision_dir == "SELL":
+            if not (c_tp < c_entry < c_sl):
+                return False, {}
+
+        if c_sl <= 0 or c_tp <= 0:
+            return False, {}
+
+        blocked_by = payload.get("blocked_by")
+        if not isinstance(blocked_by, list):
+            blocked_by = []
+        if blocked_by:
+            out["approved"] = False
+            out["reason"] = "blocked_by_present"[:120]
+
+        out["confirmed_plan"] = {"entry": float(c_entry), "sl": float(c_sl), "tp": float(c_tp)}
+
+        out["provider"] = provider
+        out["model"] = model
+        return True, out
 
     @staticmethod
     def _proxy_confirm(url: str, payload: Dict[str, Any], timeout_sec: float) -> Tuple[bool, Any]:
@@ -425,6 +882,29 @@ class AIConfirmer:
 # Flask App
 # ----------------------------
 app = Flask(__name__)
+
+def load_env_file(env_path: str, override: bool = True) -> None:
+    try:
+        if not os.path.exists(env_path):
+            return
+        with open(env_path, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                key = k.strip()
+                val = v.strip().strip("'").strip('"')
+                if not key:
+                    continue
+                if (not override) and (key in os.environ):
+                    continue
+                os.environ[key] = val
+    except Exception:
+        return
+
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+load_env_file(os.path.join(_base_dir, ".env"), override=True)
 
 _config_path = os.environ.get("HIM_CONFIG_PATH", DEFAULT_CONFIG_PATH).strip() or DEFAULT_CONFIG_PATH
 _host = os.environ.get("HIM_HOST", DEFAULT_HOST).strip() or DEFAULT_HOST
@@ -546,7 +1026,8 @@ def api_set_config():
 @app.route("/api/signal_preview", methods=["GET"])
 def api_signal_preview():
     t0 = time.time()
-    ok, sig, reason = engine_adapter.generate_signal_package()
+    event_tf = request.args.get("event_timeframe") or request.args.get("tf")
+    ok, sig, reason = engine_adapter.generate_signal_package(event_timeframe_override=event_tf)
 
     latency_ms = int((time.time() - t0) * 1000)
     _audit(
@@ -600,6 +1081,14 @@ def api_ai_confirm():
         "request_id": request_id,
         "api_meta": {"latency_ms": latency_ms, "version": APP_VERSION},
     }
+    if isinstance(ai.get("confirmed_plan"), dict):
+        out["confirmed_plan"] = ai.get("confirmed_plan")
+    if isinstance(ai.get("bullets"), list):
+        out["bullets"] = [str(x)[:140] for x in ai.get("bullets")[:3]]
+    if isinstance(ai.get("provider"), str):
+        out["provider"] = str(ai.get("provider"))[:80]
+    if isinstance(ai.get("model"), str):
+        out["model"] = str(ai.get("model"))[:80]
 
     _audit(
         "api_ai_confirm",
@@ -629,7 +1118,6 @@ def internal_error(e):
 
 
 def _startup_log():
-    cfg = config_mgr.get()
     note = "Local dashboard removed; redirect to config.dashboard.external_url"
     _append_jsonl(
         API_AUDIT_LOG,
@@ -642,6 +1130,13 @@ def _startup_log():
             "config_path": _config_path,
             "note": note,
         },
+    )
+    _telegram_send_startup(
+        "HIM API STARTED\n"
+        f"host={_host}\n"
+        f"port={_port}\n"
+        f"version={APP_VERSION}\n"
+        f"config={_config_path}"
     )
 
 

@@ -1,12 +1,13 @@
 {
   "_meta": {
     "config_version": "2.11.0",
-    "last_updated": "2026-03-05",
+    "last_updated": "2026-03-06",
     "changelog": [
       "Fix JSON validity (commissioning block + trailing commas).",
       "Add runtime services: api/dashboard/ai_confirm/risk_guard/analytics for production sidecars.",
       "SIDEWAY_SCALP: set touch_buffer_atr=0.10 (per prior changelog intent).",
-      "Keep risk.atr_sl_mult=1.6 as source-of-truth."
+      "Keep risk.atr_sl_mult=1.6 as source-of-truth.",
+      "Tune gates to increase trade frequency (relax vol + ST conflict; lower min_rr)."
     ]
   },
 
@@ -46,10 +47,22 @@
     "atr_sl_mult": 1.6
   },
 
-  "min_rr": 1.6,
-  "bos_break_atr_min": 0.05,
+  "min_rr": 1.3,
+  "decision_timeframes": ["M10", "M15", "M30", "H1"],
+  "decision_min_agree": 2,
+  "bos_break_atr_min": 0.12,
   "bos_lookback": 12,
-  "st_relax_dist_atr_m1": 0.55,
+  "st_relax_dist_atr_m1": 0.6,
+  "bb_width_atr_min": 0.8,
+  "bb_width_atr_min_m1": 0.55,
+  "rr_sl_atr": 1.25,
+  "rr_base_tp_atr": 1.9,
+
+  "trend_entry": {
+    "enabled": true,
+    "min_align": 1,
+    "max_supertrend_distance_atr": 2.6
+  },
 
   "supertrend": {
     "period": 10,
@@ -143,7 +156,10 @@
   },
 
   "telegram": {
-    "enabled": true
+    "enabled": true,
+    "notify_on": ["signal", "trade", "error"],
+    "token_env": "TELEGRAM_BOT_TOKEN_TRADE",
+    "chat_id_env": "TELEGRAM_TRADE_CHAT_ID"
   },
 
   "ai": {
@@ -156,10 +172,18 @@
   },
 
   "ai_confirm": {
+    "use_llm": true,
+    "provider": "deepseek",
+    "llm_api_url": "https://api.deepseek.com/v1/chat/completions",
+    "llm_model": "deepseek-reasoner",
+    "llm_timeout_sec": 8.0,
+    "llm_max_tokens": 220,
+    "llm_temperature": 0.1,
+    "entry_shift_max_atr": 0.2,
     "external_url": "",
     "timeout_sec": 8.0,
     "min_confidence": null,
-    "min_rr": 1.5
+    "min_rr": 1.3
   },
 
   "risk_guard": {

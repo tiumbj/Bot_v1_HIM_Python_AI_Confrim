@@ -30,6 +30,8 @@ from __future__ import annotations
 import os
 import time
 import json
+import math
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 import MetaTrader5 as mt5
@@ -37,7 +39,7 @@ import numpy as np
 
 VERSION = "v1.3.1"
 
-COOLDOWN_SECONDS = 30
+COOLDOWN_SECONDS = 20
 MAGIC_NUMBER = 202603
 
 SLTP_VERIFY_TIMEOUT_SEC = 3.0
@@ -86,6 +88,16 @@ class MT5Executor:
 
         self._dedup = self._load_dedup_state()
 
+        self._tg: Optional[Any] = None
+        try:
+            from telegram_notifier import TelegramNotifier  # type: ignore
+
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            cfg_path = os.path.join(base_dir, "config.json")
+            self._tg = TelegramNotifier(config_path=cfg_path)
+        except Exception:
+            self._tg = None
+
         if not mt5.initialize():
             raise RuntimeError("MT5 initialize failed")
 
@@ -117,6 +129,56 @@ class MT5Executor:
         line = self._safe_json(record)
         with open(self.exec_log_file, "a", encoding="utf-8") as f:
             f.write(line + "\n")
+
+    @staticmethod
+    def _utc_ts_str() -> str:
+        return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    def _tg_send(self, text: str, event_type: str) -> None:
+        if self._tg is None:
+            return
+        try:
+            self._tg.send_text(text=text, event_type=event_type, parse_mode=None)
+        except Exception:
+            return
+
+    def _format_trade_alert(
+        self,
+        *,
+        status: str,
+        direction: str,
+        request_id: str,
+        price: Optional[float],
+        sl: Optional[float],
+        tp: Optional[float],
+        position_ticket: Optional[int],
+        ai_confirm: Any,
+        extra: str = "",
+    ) -> str:
+        conf = ""
+        if isinstance(ai_confirm, dict):
+            c = ai_confirm.get("confidence", None)
+            if isinstance(c, (int, float)):
+                conf = f"\nconfidence={float(c):.2f}"
+        ticket_str = str(position_ticket) if position_ticket is not None else "-"
+        price_str = f"{price:.2f}" if isinstance(price, (int, float)) else "-"
+        sl_str = f"{sl:.2f}" if isinstance(sl, (int, float)) else "-"
+        tp_str = f"{tp:.2f}" if isinstance(tp, (int, float)) else "-"
+        x = f"\n{extra}" if extra else ""
+        return (
+            f"HIM TRADE | {status}\n"
+            f"time_utc={self._utc_ts_str()}\n"
+            f"symbol={self.symbol}\n"
+            f"side={direction}\n"
+            f"volume={float(self.lot):g}\n"
+            f"price={price_str}\n"
+            f"sl={sl_str}\n"
+            f"tp={tp_str}\n"
+            f"ticket={ticket_str}\n"
+            f"request_id={request_id}"
+            f"{conf}"
+            f"{x}"
+        )
 
     # -----------------------------
     # Dedup State
@@ -209,6 +271,302 @@ class MT5Executor:
                     return False, "duplicate_buy_magic"
                 if direction == "SELL" and p.type == 1:
                     return False, "duplicate_sell_magic"
+        return True, None
+
+    def _block_opposite_enabled(self) -> bool:
+        return os.environ.get("EXECUTION_BLOCK_OPPOSITE", "1").strip() in ("1", "true", "TRUE", "yes", "YES")
+
+    def opposite_position_check(self, direction: str) -> Tuple[bool, Optional[str]]:
+        if not self._block_opposite_enabled():
+            return True, None
+        d = str(direction).upper().strip()
+        positions = mt5.positions_get(symbol=self.symbol)
+        if not positions:
+            return True, None
+        for p in positions:
+            if getattr(p, "magic", None) != MAGIC_NUMBER:
+                continue
+            p_type = getattr(p, "type", None)
+            if d == "BUY" and p_type == 1:
+                return False, "opposite_sell_open"
+            if d == "SELL" and p_type == 0:
+                return False, "opposite_buy_open"
+        return True, None
+
+    def _adaptive_reverse_enabled(self) -> bool:
+        return os.environ.get("EXECUTION_ADAPTIVE_REVERSE", "1").strip() in ("1", "true", "TRUE", "yes", "YES")
+
+    def _reverse_required_votes(self) -> int:
+        try:
+            v = int(float(os.environ.get("EXECUTION_REVERSE_MIN_VOTES", "2")))
+        except Exception:
+            v = 2
+        return max(1, v)
+
+    def _reverse_max_st_distance_atr(self) -> float:
+        try:
+            return max(0.0, float(os.environ.get("EXECUTION_REVERSE_MAX_ST_DISTANCE_ATR", "2.8")))
+        except Exception:
+            return 2.8
+
+    def _reverse_confirmed(self, direction: str, signal: Dict[str, Any]) -> bool:
+        d = str(direction).upper().strip()
+        if d not in ("BUY", "SELL"):
+            return False
+        metrics = signal.get("metrics") if isinstance(signal.get("metrics"), dict) else {}
+        try:
+            align = int(metrics.get("alignment_score") or 0)
+        except Exception:
+            align = 0
+        if align < 2:
+            return False
+        try:
+            st_dir = int(metrics.get("supertrend_dir_event") or 0)
+        except Exception:
+            st_dir = 0
+        if d == "BUY" and st_dir <= 0:
+            return False
+        if d == "SELL" and st_dir >= 0:
+            return False
+        st_dist = metrics.get("supertrend_distance_atr")
+        try:
+            st_dist_f = float(st_dist)
+        except Exception:
+            st_dist_f = None
+        if st_dist_f is not None and st_dist_f > self._reverse_max_st_distance_atr():
+            return False
+        regime = str(metrics.get("regime") or metrics.get("regime_candidate") or "").upper().strip()
+        if regime and regime not in self._pyramid_allowed_regimes():
+            return False
+        votes = signal.get("decision_votes") if isinstance(signal.get("decision_votes"), dict) else {}
+        if votes:
+            want = int(votes.get("BUY", 0) if d == "BUY" else votes.get("SELL", 0))
+            opp = int(votes.get("SELL", 0) if d == "BUY" else votes.get("BUY", 0))
+            if opp > 0:
+                return False
+            if want < self._reverse_required_votes():
+                return False
+        return True
+
+    def _close_position_by_ticket(self, p: Any) -> Tuple[bool, str]:
+        p_type = getattr(p, "type", None)
+        ticket = int(getattr(p, "ticket", 0) or 0)
+        vol = float(getattr(p, "volume", 0.0) or 0.0)
+        if ticket <= 0 or vol <= 0:
+            return False, "invalid_position_ticket_or_volume"
+        tick = mt5.symbol_info_tick(self.symbol)
+        if tick is None:
+            return False, "tick_error"
+        if p_type == 0:
+            close_type = mt5.ORDER_TYPE_SELL
+            px = float(tick.bid)
+        elif p_type == 1:
+            close_type = mt5.ORDER_TYPE_BUY
+            px = float(tick.ask)
+        else:
+            return False, "unknown_position_type"
+        req = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": self.symbol,
+            "position": ticket,
+            "volume": vol,
+            "type": close_type,
+            "price": px,
+            "deviation": int(self.deviation_min),
+            "magic": MAGIC_NUMBER,
+            "comment": "HIM_CLOSE_REVERSE",
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+        res = mt5.order_send(req)
+        if res is None:
+            return False, "close_order_send_none"
+        if int(getattr(res, "retcode", 0)) != int(mt5.TRADE_RETCODE_DONE):
+            rc = int(getattr(res, "retcode", 0))
+            return False, f"close_fail:{rc}"
+        return True, "closed"
+
+    def adaptive_reverse_opposite(self, direction: str, signal: Dict[str, Any]) -> Tuple[bool, Optional[str], int]:
+        d = str(direction).upper().strip()
+        opposite = "SELL" if d == "BUY" else "BUY"
+        opp_positions = self._our_positions_side(opposite)
+        if not opp_positions:
+            return True, None, 0
+        if not self._adaptive_reverse_enabled():
+            return False, f"opposite_{opposite.lower()}_open", 0
+        if not self._reverse_confirmed(d, signal):
+            return False, "opposite_signal_not_confirmed", 0
+        closed = 0
+        opp_positions.sort(key=lambda x: getattr(x, "time", 0) or 0)
+        for p in opp_positions:
+            ok, rs = self._close_position_by_ticket(p)
+            if not ok:
+                return False, rs, closed
+            closed += 1
+        return True, None, closed
+
+    def _pyramid_enabled(self) -> bool:
+        return os.environ.get("EXECUTION_PYRAMID_ENABLE", "1").strip() in ("1", "true", "TRUE", "yes", "YES")
+
+    def _pyramid_step_atr(self) -> float:
+        try:
+            return max(0.0, float(os.environ.get("EXECUTION_PYRAMID_STEP_ATR", "0.8")))
+        except Exception:
+            return 0.8
+
+    def _pyramid_min_align(self) -> int:
+        try:
+            return max(0, int(float(os.environ.get("EXECUTION_PYRAMID_MIN_ALIGN", "2"))))
+        except Exception:
+            return 2
+
+    def _pyramid_allowed_regimes(self) -> set[str]:
+        raw = os.environ.get("EXECUTION_PYRAMID_ALLOW_REGIMES", "TREND,EXPANSION").strip()
+        parts = [p.strip().upper() for p in raw.split(",") if p.strip()]
+        return set(parts) if parts else {"TREND", "EXPANSION"}
+
+    def _pyramid_max_st_distance_atr(self) -> float:
+        try:
+            return max(0.0, float(os.environ.get("EXECUTION_PYRAMID_MAX_ST_DISTANCE_ATR", "3.2")))
+        except Exception:
+            return 3.2
+
+    def _pyramid_margin_buffer(self) -> float:
+        try:
+            return max(1.0, float(os.environ.get("EXECUTION_PYRAMID_MARGIN_BUFFER", "1.6")))
+        except Exception:
+            return 1.6
+
+    def _abs_max_positions(self) -> int:
+        try:
+            return max(1, int(float(os.environ.get("EXECUTION_ABS_MAX_POSITIONS", "50"))))
+        except Exception:
+            return 50
+
+    def _our_positions(self) -> list[Any]:
+        pos = mt5.positions_get(symbol=self.symbol)
+        if not pos:
+            return []
+        out: list[Any] = []
+        for p in pos:
+            if getattr(p, "magic", None) != MAGIC_NUMBER:
+                continue
+            out.append(p)
+        return out
+
+    def _our_positions_side(self, direction: str) -> list[Any]:
+        d = str(direction).upper().strip()
+        want_type = 0 if d == "BUY" else 1
+        out: list[Any] = []
+        for p in self._our_positions():
+            if getattr(p, "type", None) != want_type:
+                continue
+            out.append(p)
+        return out
+
+    def _latest_entry_price(self, positions: list[Any]) -> Optional[float]:
+        if not positions:
+            return None
+        positions.sort(key=lambda x: getattr(x, "time", 0) or 0, reverse=True)
+        p0 = positions[0]
+        try:
+            return float(getattr(p0, "price_open", 0.0) or 0.0)
+        except Exception:
+            return None
+
+    def _order_calc_margin(self, order_type: int, price: float) -> Optional[float]:
+        try:
+            m = mt5.order_calc_margin(order_type, self.symbol, float(self.lot), float(price))
+            if m is None:
+                return None
+            m = float(m)
+            return m if m > 0 else None
+        except Exception:
+            return None
+
+    def adaptive_position_check(self, *, direction: str, order_type: int, exec_price: float, info: Any, signal: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        d = str(direction).upper().strip()
+        metrics = signal.get("metrics") if isinstance(signal.get("metrics"), dict) else {}
+        regime = str(metrics.get("regime") or metrics.get("regime_candidate") or "").upper().strip()
+        st_dist = metrics.get("supertrend_distance_atr")
+        try:
+            st_dist_f = float(st_dist)
+        except Exception:
+            st_dist_f = None
+        if st_dist_f is not None and st_dist_f > self._pyramid_max_st_distance_atr():
+            return False, "pyramid_block_chase"
+
+        try:
+            align = int(metrics.get("alignment_score") or 0)
+        except Exception:
+            align = 0
+
+        st_dir = metrics.get("supertrend_dir_event")
+        try:
+            st_dir_i = int(st_dir)
+        except Exception:
+            st_dir_i = 0
+        if d == "BUY" and st_dir_i <= 0:
+            return False, "pyramid_block_st_dir"
+        if d == "SELL" and st_dir_i >= 0:
+            return False, "pyramid_block_st_dir"
+
+        side_positions = self._our_positions_side(d)
+        if not side_positions:
+            total = len(self._our_positions())
+            if total >= self._abs_max_positions():
+                return False, "abs_max_positions_reached"
+            return True, None
+
+        if not self._pyramid_enabled():
+            return self.duplicate_position_check(d)
+
+        if regime and regime not in self._pyramid_allowed_regimes():
+            return False, "pyramid_block_regime"
+
+        if align < self._pyramid_min_align():
+            return False, "pyramid_block_alignment"
+
+        atr = metrics.get("atr")
+        try:
+            atr_f = float(atr)
+        except Exception:
+            atr_f = None
+        if atr_f is None or atr_f <= 0:
+            point = float(getattr(info, "point", 0.0) or 0.0)
+            atr_pts = self.get_atr_points(point) if point > 0 else None
+            atr_f = (float(atr_pts) * point) if (atr_pts is not None and point > 0) else None
+        if atr_f is None or atr_f <= 0:
+            return False, "pyramid_no_atr"
+
+        last_entry = self._latest_entry_price(side_positions)
+        if last_entry is None:
+            return False, "pyramid_no_last_entry"
+
+        step = self._pyramid_step_atr() * float(atr_f)
+        if d == "BUY":
+            if float(exec_price) < (float(last_entry) + step):
+                return False, "pyramid_wait_step"
+        else:
+            if float(exec_price) > (float(last_entry) - step):
+                return False, "pyramid_wait_step"
+
+        total = len(self._our_positions())
+        if total >= self._abs_max_positions():
+            return False, "abs_max_positions_reached"
+
+        acc = mt5.account_info()
+        if acc is None:
+            return False, "account_error"
+        margin_per_order = self._order_calc_margin(order_type, float(exec_price))
+        if margin_per_order is not None:
+            buffer = self._pyramid_margin_buffer()
+            max_orders_by_margin = int(math.floor(float(acc.margin_free) / (float(margin_per_order) * float(buffer))))
+            if max_orders_by_margin <= 0:
+                return False, "pyramid_no_margin_room"
+            if total >= max_orders_by_margin:
+                return False, "pyramid_margin_cap"
+
         return True, None
 
     def pending_orders_check(self) -> Tuple[bool, Optional[str]]:
@@ -448,6 +806,23 @@ class MT5Executor:
             return out
         info = info_or_reason
 
+        ok, reason, closed_n = self.adaptive_reverse_opposite(direction, signal)
+        if not ok:
+            out = {"status": "SKIP", "reason": reason or "opposite_position_blocked", "request_id": request_id}
+            self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out, "decision": direction})
+            return out
+        if closed_n > 0:
+            self._append_jsonl({
+                "ts": ts,
+                "version": VERSION,
+                "symbol": self.symbol,
+                "request_id": request_id,
+                "status": "INFO",
+                "reason": "adaptive_reverse_closed_opposite",
+                "direction": direction,
+                "closed_positions": int(closed_n),
+            })
+
         ok, reason = self.spread_check(info)
         if not ok:
             out = {"status": "SKIP", "reason": reason or "spread_blocked", "request_id": request_id}
@@ -457,12 +832,6 @@ class MT5Executor:
         ok, reason = self.cooldown_check()
         if not ok:
             out = {"status": "SKIP", "reason": reason or "cooldown_blocked", "request_id": request_id}
-            self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out})
-            return out
-
-        ok, reason = self.duplicate_position_check(direction)
-        if not ok:
-            out = {"status": "SKIP", "reason": reason or "duplicate_blocked", "request_id": request_id}
             self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out})
             return out
 
@@ -514,6 +883,12 @@ class MT5Executor:
         sl_f = self._round_to_digits(sl_f, digits)
         tp_f = self._round_to_digits(tp_f, digits)
 
+        ok, reason = self.adaptive_position_check(direction=direction, order_type=order_type, exec_price=price, info=info, signal=signal)
+        if not ok:
+            out = {"status": "SKIP", "reason": reason or "position_policy_blocked", "request_id": request_id}
+            self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out, "price": price})
+            return out
+
         ok, reason = self.stops_check(direction, info, price, sl_f, tp_f)
         if not ok:
             out = {"status": "SKIP", "reason": reason or "stops_blocked", "request_id": request_id}
@@ -544,11 +919,39 @@ class MT5Executor:
         if result is None:
             out = {"status": "SKIP", "reason": "order_send_none", "request_id": request_id}
             self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out})
+            self._tg_send(
+                self._format_trade_alert(
+                    status=out["status"],
+                    direction=direction,
+                    request_id=request_id,
+                    price=price,
+                    sl=sl_f,
+                    tp=tp_f,
+                    position_ticket=None,
+                    ai_confirm=signal.get("ai_confirm", None),
+                    extra="reason=order_send_none",
+                ),
+                "error",
+            )
             return out
 
         if result.retcode != mt5.TRADE_RETCODE_DONE:
             out = {"status": "SKIP", "reason": f"order_fail:{result.retcode}", "request_id": request_id, "mt5_comment": getattr(result, "comment", "")}
             self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out})
+            self._tg_send(
+                self._format_trade_alert(
+                    status=out["status"],
+                    direction=direction,
+                    request_id=request_id,
+                    price=price,
+                    sl=sl_f,
+                    tp=tp_f,
+                    position_ticket=None,
+                    ai_confirm=signal.get("ai_confirm", None),
+                    extra=f"reason={out['reason']}\nmt5_comment={out.get('mt5_comment','')}",
+                ),
+                "error",
+            )
             return out
 
         self.last_trade_time = self._now()
@@ -556,12 +959,40 @@ class MT5Executor:
         ok_sltp, sltp_reason, pos_ticket = self.enforce_sltp_after_send(direction, sl_f, tp_f)
         if not ok_sltp:
             out = {"status": "ORDER_SENT_BUT_UNSAFE", "request_id": request_id, "price": price, "position_ticket": pos_ticket, "reason": sltp_reason}
-            self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out, "ai_confirm": signal.get("ai_confirm", None), "plan": plan})
+            self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out, "direction": direction, "ai_confirm": signal.get("ai_confirm", None), "plan": plan})
+            self._tg_send(
+                self._format_trade_alert(
+                    status=out["status"],
+                    direction=direction,
+                    request_id=request_id,
+                    price=price,
+                    sl=sl_f,
+                    tp=tp_f,
+                    position_ticket=pos_ticket,
+                    ai_confirm=signal.get("ai_confirm", None),
+                    extra=f"sltp={sltp_reason}",
+                ),
+                "trade",
+            )
             return out
 
         out = {"status": "ORDER_SENT", "request_id": request_id, "price": price, "position_ticket": pos_ticket, "sltp": sltp_reason}
-        self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out, "ai_confirm": signal.get("ai_confirm", None), "plan": plan})
+        self._append_jsonl({"ts": ts, "version": VERSION, "symbol": self.symbol, "request_id": request_id, **out, "direction": direction, "ai_confirm": signal.get("ai_confirm", None), "plan": plan})
         self._dedup_mark_done(request_id, {"ts": ts, "status": out["status"], "position_ticket": pos_ticket, "price": price, "sltp": sltp_reason})
+        self._tg_send(
+            self._format_trade_alert(
+                status=out["status"],
+                direction=direction,
+                request_id=request_id,
+                price=price,
+                sl=sl_f,
+                tp=tp_f,
+                position_ticket=pos_ticket,
+                ai_confirm=signal.get("ai_confirm", None),
+                extra=f"sltp={sltp_reason}",
+            ),
+            "trade",
+        )
         return out
 
     def skip(self, reason: str) -> Dict[str, Any]:

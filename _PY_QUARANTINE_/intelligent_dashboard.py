@@ -20,7 +20,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 import streamlit as st
@@ -308,13 +308,13 @@ with tabs[0]:
 
     st.markdown("### Top SKIP reasons")
     if not kpi.top_reasons.empty:
-        st.dataframe(kpi.top_reasons, use_container_width=True)
+        st.dataframe(kpi.top_reasons, width="stretch")
     else:
         st.write("No SKIP reasons yet.")
 
     st.markdown("### Recent events")
     if not kpi.recent.empty:
-        st.dataframe(kpi.recent, use_container_width=True)
+        st.dataframe(kpi.recent, width="stretch")
     else:
         st.write("No execution events yet.")
 
@@ -333,13 +333,13 @@ with tabs[1]:
 
     st.markdown("### Top API events")
     if not api_kpi.top_events.empty:
-        st.dataframe(api_kpi.top_events, use_container_width=True)
+        st.dataframe(api_kpi.top_events, width="stretch")
     else:
         st.write("No api events yet.")
 
     st.markdown("### Recent audit rows")
     if not api_kpi.recent.empty:
-        st.dataframe(api_kpi.recent, use_container_width=True)
+        st.dataframe(api_kpi.recent, width="stretch")
     else:
         st.write("No api audit rows yet.")
 
@@ -362,9 +362,9 @@ with tabs[2]:
         # Try to extract common fields (best-effort)
         keep_cols = [c for c in ["time", "event", "status", "reason", "request_id", "signal_url", "ai_confirm_url"] if c in mentor_df.columns]
         if keep_cols:
-            st.dataframe(mentor_df[keep_cols].head(recent_rows), use_container_width=True)
+            st.dataframe(mentor_df[keep_cols].head(recent_rows), width="stretch")
         else:
-            st.dataframe(mentor_df.head(recent_rows), use_container_width=True)
+            st.dataframe(mentor_df.head(recent_rows), width="stretch")
 
 # -----------------------------
 # Tab 4: Raw tail preview

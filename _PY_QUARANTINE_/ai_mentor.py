@@ -224,7 +224,6 @@ class AIMentor:
             direction = str(pos.get("dir", "NONE")).upper()
             entry = _sf(pos.get("entry"))
             sl0 = _sf(pos.get("sl"))
-            tp = _sf(pos.get("tp", entry))
             price_now = _sf(pos.get("price_now"))
             atr = max(_sf(pos.get("atr"), 0.0), 1e-9)
 

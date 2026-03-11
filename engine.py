@@ -2,10 +2,20 @@
 # =============================================================================
 # Hybrid Intelligence Mentor (HIM) - Trading Engine
 #
-# Version: v2.12.8
+# Version: v2.12.9
 # File: C:\Hybrid_Intelligence_Mentor\engine.py
 #
 # PRODUCTION MODEL (DO NOT CHANGE STRUCTURE)
+#
+# CHANGELOG (v2.12.9):
+# - ADD: Regime classification (RISK_OFF/RANGE/TREND/EXPANSION) + bounded adaptive thresholds
+# - FIX: Output schema for production chain: request_id + decision(BUY/SELL/HOLD) + plan(entry/sl/tp)
+# - FIX: Robust last-finite sampling for ATR/BB width/Supertrend to avoid NaN->null permanent blocks
+#
+# CHANGELOG (v2.12.9):
+# - ADD: Regime classification (RISK_OFF/RANGE/TREND/EXPANSION) + hysteresis
+# - FIX: Production tradeability schema for API/mentor: request_id + decision(BUY/SELL/HOLD) + plan(entry/sl/tp)
+# - FIX: Robust indicator sampling to reduce NaN->null causing permanent blocks
 #
 # CHANGELOG (v2.12.8):
 # - FIX: RR gate mismatch with config.min_rr
@@ -49,6 +59,7 @@ except Exception:  # pragma: no cover
 MT5_TF_MAP = {
     "M1":  mt5.TIMEFRAME_M1 if mt5 else None,
     "M5":  mt5.TIMEFRAME_M5 if mt5 else None,
+    "M10": getattr(mt5, "TIMEFRAME_M10", None) if mt5 else None,
     "M15": mt5.TIMEFRAME_M15 if mt5 else None,
     "M30": mt5.TIMEFRAME_M30 if mt5 else None,
     "H1":  mt5.TIMEFRAME_H1 if mt5 else None,
@@ -227,6 +238,10 @@ class EngineConfig:
     rr_sl_atr: float = 1.0
     rr_base_tp_atr: float = 1.3
 
+    trend_entry_enabled: bool = False
+    trend_entry_min_align: int = 2
+    trend_entry_max_st_distance_atr: float = 1.2
+
 
 class TradingEngine:
     """
@@ -238,6 +253,7 @@ class TradingEngine:
         self.config_source = config
         self.raw_cfg = self._normalize_config(config)
         self.cfg = self._build_cfg(self.raw_cfg)
+        self._regime_state: Dict[str, Dict[str, Any]] = {}
 
     def _normalize_config(self, config: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
         if isinstance(config, dict):
@@ -249,6 +265,8 @@ class TradingEngine:
     def _build_cfg(self, raw: Dict[str, Any]) -> EngineConfig:
         tfs = raw.get("timeframes", {}) if isinstance(raw, dict) else {}
         symbol = raw.get("symbol", "GOLD")
+        te = raw.get("trend_entry", {}) if isinstance(raw, dict) else {}
+        te = te if isinstance(te, dict) else {}
 
         return EngineConfig(
             symbol=str(symbol),
@@ -277,6 +295,10 @@ class TradingEngine:
 
             rr_sl_atr=_safe_float(raw.get("rr_sl_atr", 1.0), 1.0),
             rr_base_tp_atr=_safe_float(raw.get("rr_base_tp_atr", 1.3), 1.3),
+
+            trend_entry_enabled=bool(te.get("enabled", False)),
+            trend_entry_min_align=int(te.get("min_align", 2)),
+            trend_entry_max_st_distance_atr=_safe_float(te.get("max_supertrend_distance_atr", 1.2), 1.2),
         )
 
     def _ensure_mt5(self) -> None:
@@ -303,25 +325,46 @@ class TradingEngine:
 
         i = df.index[-1]
         close = float(df.loc[i, "close"])
-        a = float(atr.loc[i]) if not np.isnan(atr.loc[i]) else np.nan
-        stv = float(st_line.loc[i]) if not np.isnan(st_line.loc[i]) else np.nan
-        stdir = int(1 if st_dir.loc[i] > 0 else -1)
 
-        dist = abs(close - stv) if not np.isnan(stv) else np.nan
-        dist_atr = (dist / a) if (a and not np.isnan(a) and a != 0.0 and not np.isnan(dist)) else np.nan
+        def _last_finite(s: pd.Series, default: float = np.nan, lookback: int = 6) -> float:
+            tail = s.tail(lookback)
+            for v in reversed(list(tail.values)):
+                try:
+                    fv = float(v)
+                    if np.isfinite(fv):
+                        return fv
+                except Exception:
+                    continue
+            return float(default)
+
+        a = _last_finite(atr, np.nan)
+        stv = _last_finite(st_line, np.nan)
+        stdir_val = _last_finite(st_dir, 1.0)
+        stdir = int(1 if stdir_val > 0 else -1)
+
+        bbwa = _last_finite(bb_width_atr, np.nan)
+        bbu = _last_finite(upper, np.nan)
+        bbl = _last_finite(lower, np.nan)
+
+        signed_dist = (close - stv) if np.isfinite(stv) else np.nan
+        abs_dist = abs(signed_dist) if np.isfinite(signed_dist) else np.nan
+
+        dist_atr = (abs_dist / a) if (np.isfinite(a) and a != 0.0 and np.isfinite(abs_dist)) else np.nan
+        signed_atr = (signed_dist / a) if (np.isfinite(a) and a != 0.0 and np.isfinite(signed_dist)) else np.nan
 
         return {
             "tf": tf,
             "ok": True,
             "df": df,
             "close": close,
-            "atr": a,
-            "bb_width_atr": float(bb_width_atr.loc[i]) if not np.isnan(bb_width_atr.loc[i]) else np.nan,
-            "st_line": stv,
+            "atr": float(a) if np.isfinite(a) else np.nan,
+            "bb_width_atr": float(bbwa) if np.isfinite(bbwa) else np.nan,
+            "st_line": float(stv) if np.isfinite(stv) else np.nan,
             "st_dir": stdir,
-            "st_distance_atr": float(dist_atr) if not np.isnan(dist_atr) else np.nan,
-            "bb_upper": float(upper.loc[i]) if not np.isnan(upper.loc[i]) else np.nan,
-            "bb_lower": float(lower.loc[i]) if not np.isnan(lower.loc[i]) else np.nan,
+            "st_distance_atr": float(dist_atr) if np.isfinite(dist_atr) else np.nan,
+            "st_distance_atr_signed": float(signed_atr) if np.isfinite(signed_atr) else np.nan,
+            "bb_upper": float(bbu) if np.isfinite(bbu) else np.nan,
+            "bb_lower": float(bbl) if np.isfinite(bbl) else np.nan,
         }
 
     def _derive_htf_bias(self, htf_bundle: Dict[str, Any]) -> str:
@@ -420,13 +463,27 @@ class TradingEngine:
         if not data_ok:
             blocked_by.append("data_not_ready")
 
-        # volatility gate
+        # regime features (alignment)
+        align = 0
+        if htf.get("ok") and int(htf.get("st_dir", 0)) == int(ev.get("st_dir", 0)):
+            align += 1
+        if mtf.get("ok") and int(mtf.get("st_dir", 0)) == int(ev.get("st_dir", 0)):
+            align += 1
+        if ltf.get("ok") and int(ltf.get("st_dir", 0)) == int(ev.get("st_dir", 0)):
+            align += 1
+        metrics["alignment_score"] = int(align)
+
+        # volatility gate (adaptive, bounded)
         bb_width_atr = _safe_float(ev.get("bb_width_atr"), np.nan)
-        vol_thr = self.cfg.bb_width_atr_min_m1 if event_timeframe == "M1" else self.cfg.bb_width_atr_min
-        vol_ok = (not np.isnan(bb_width_atr)) and (bb_width_atr >= vol_thr)
+        vol_thr_base = self.cfg.bb_width_atr_min_m1 if event_timeframe == "M1" else self.cfg.bb_width_atr_min
+        vol_thr_used = float(vol_thr_base) * (0.80 if align >= 2 else 1.00)
+        vol_thr_used = max(0.20, min(vol_thr_used, float(vol_thr_base)))
+
+        vol_ok = (not np.isnan(bb_width_atr)) and (bb_width_atr >= vol_thr_used)
         gates["vol_expansion_ok"] = bool(vol_ok)
         metrics["bb_width_atr"] = bb_width_atr
-        metrics["bb_width_atr_min_used"] = float(vol_thr)
+        metrics["bb_width_atr_min_base"] = float(vol_thr_base)
+        metrics["bb_width_atr_min_used"] = float(vol_thr_used)
         if data_ok and not vol_ok:
             blocked_by.append("no_vol_expansion")
 
@@ -455,13 +512,6 @@ class TradingEngine:
         if data_ok and not supertrend_ok:
             blocked_by.append("supertrend_conflict")
 
-        # BOS
-        bos_ok, bos_metrics, bos_block = self._bos_gate(ev)
-        gates["bos_break_ok"] = bool(bos_ok)
-        metrics.update(bos_metrics)
-        if data_ok and bos_block:
-            blocked_by.append(bos_block)
-
         # RR (FIXED in v2.12.8)
         rr_ok, rr_metrics, rr_block = self._rr_gate(ev)
         gates["rr_ok"] = bool(rr_ok)
@@ -470,22 +520,126 @@ class TradingEngine:
         if data_ok and rr_block:
             blocked_by.append(rr_block)
 
-        decision = "BLOCKED" if blocked_by else "PASS"
+        candidate_regime = "RISK_OFF" if not data_ok else (
+            "EXPANSION" if gates.get("vol_expansion_ok") and int(metrics.get("alignment_score", 0)) >= 2 else (
+                "TREND" if int(metrics.get("alignment_score", 0)) >= 2 else "RANGE"
+            )
+        )
+
+        tf_sec = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600}.get(event_timeframe, 60)
+        lock_ms = int(tf_sec * 10 * 1000)
+        key = f"{symbol}:{event_timeframe}"
+        st = self._regime_state.get(key) or {"regime": candidate_regime, "pending": None, "pending_n": 0, "last_change_ms": 0}
+
+        regime = str(st.get("regime") or candidate_regime)
+        last_change_ms = int(st.get("last_change_ms") or 0)
+
+        if candidate_regime == "RISK_OFF":
+            regime = "RISK_OFF"
+            st["pending"] = None
+            st["pending_n"] = 0
+            st["last_change_ms"] = _now_ms()
+        else:
+            if candidate_regime != regime:
+                if st.get("pending") != candidate_regime:
+                    st["pending"] = candidate_regime
+                    st["pending_n"] = 1
+                else:
+                    st["pending_n"] = int(st.get("pending_n") or 0) + 1
+
+                if (_now_ms() - last_change_ms) >= lock_ms and int(st.get("pending_n") or 0) >= 3:
+                    regime = candidate_regime
+                    st["regime"] = regime
+                    st["pending"] = None
+                    st["pending_n"] = 0
+                    st["last_change_ms"] = _now_ms()
+            else:
+                st["pending"] = None
+                st["pending_n"] = 0
+
+        self._regime_state[key] = st
+        metrics["regime"] = regime
+        metrics["regime_candidate"] = candidate_regime
+
+        # BOS (direction-aware vs HTF bias)
+        bos_ok_raw, bos_metrics, _ = self._bos_gate(ev)
+        metrics.update(bos_metrics)
+
+        break_up = _safe_float(bos_metrics.get("bos_break_up_atr"), np.nan)
+        break_dn = _safe_float(bos_metrics.get("bos_break_dn_atr"), np.nan)
+
+        bos_ok = bool(bos_ok_raw)
+        if bias == "bullish":
+            bos_ok = (not np.isnan(break_up)) and (break_up >= float(self.cfg.bos_break_atr_min))
+        elif bias == "bearish":
+            bos_ok = (not np.isnan(break_dn)) and (break_dn >= float(self.cfg.bos_break_atr_min))
+
+        gates["bos_break_ok"] = bool(bos_ok)
+        align_ok = int(metrics.get("alignment_score", 0)) >= int(self.cfg.trend_entry_min_align)
+        st_dist_ok = (not np.isnan(st_dist_atr)) and (st_dist_atr <= float(self.cfg.trend_entry_max_st_distance_atr))
+        trend_entry_ok = (
+            bool(self.cfg.trend_entry_enabled)
+            and data_ok
+            and bool(rr_ok)
+            and bool(vol_ok)
+            and (not conflict)
+            and align_ok
+            and st_dist_ok
+            and regime in ("TREND", "EXPANSION")
+        )
+        gates["trend_entry_ok"] = bool(trend_entry_ok)
+
+        if data_ok and not bos_ok and not trend_entry_ok:
+            blocked_by.append("no_bos_break")
+
+        status = "BLOCKED" if blocked_by else "PASS"
+
+        action = "HOLD"
+        plan = {"entry": 0.0, "sl": 0.0, "tp": 0.0}
+
+        break_up = _safe_float(metrics.get("bos_break_up_atr"), np.nan)
+        break_dn = _safe_float(metrics.get("bos_break_dn_atr"), np.nan)
+
+        if data_ok and not blocked_by and regime != "RISK_OFF":
+            if bias == "bullish" and (bool(bos_ok) or bool(trend_entry_ok)):
+                action = "BUY"
+            elif bias == "bearish" and (bool(bos_ok) or bool(trend_entry_ok)):
+                action = "SELL"
+
+        close_px = _safe_float(ev.get("close"), 0.0)
+        atr_px = _safe_float(ev.get("atr"), 0.0)
+        sl_atr = float(metrics.get("sl_atr", float(self.cfg.rr_sl_atr)))
+        tp_atr = float(metrics.get("tp_atr", float(self.cfg.rr_base_tp_atr)))
+
+        if action in ("BUY", "SELL") and atr_px > 0:
+            entry = float(close_px)
+            if action == "BUY":
+                sl = entry - (atr_px * sl_atr)
+                tp = entry + (atr_px * tp_atr)
+            else:
+                sl = entry + (atr_px * sl_atr)
+                tp = entry - (atr_px * tp_atr)
+            plan = {"entry": float(entry), "sl": float(sl), "tp": float(tp)}
+
+        request_id = f"REQ-{symbol}-{_now_ms()}"
 
         return {
-            "engine_version": "v2.12.8",
+            "engine_version": "v2.12.9",
+            "request_id": request_id,
             "ts_ms": _now_ms(),
             "symbol": symbol,
             "event_timeframe": event_timeframe,
             "timeframes": {"htf": self.cfg.htf, "mtf": self.cfg.mtf, "ltf": self.cfg.ltf},
             "bias": bias,
+            "status": status,
+            "decision": action,
+            "plan": plan,
             "price": {
                 "close": _safe_float(ev.get("close"), np.nan),
                 "atr": _safe_float(ev.get("atr"), np.nan),
             },
             "gates": gates,
             "blocked_by": blocked_by,
-            "decision": decision,
             "metrics": metrics,
             "debug": {
                 "htf_ok": bool(htf.get("ok")),

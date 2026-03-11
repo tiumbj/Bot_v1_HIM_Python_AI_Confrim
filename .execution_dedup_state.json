@@ -7,6 +7,923 @@
       "position_ticket": 1915646744,
       "price": 5164.65,
       "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772774605208": {
+      "ts": 1772774605.2182677,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917273310,
+      "price": 5123.06,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772775500044": {
+      "ts": 1772775500.0526454,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917285697,
+      "price": 5120.04,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772776112311": {
+      "ts": 1772776112.3237731,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917293808,
+      "price": 5118.28,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772776165866": {
+      "ts": 1772776165.876971,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917295040,
+      "price": 5117.21,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772777269592": {
+      "ts": 1772777269.6007507,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917315031,
+      "price": 5120.81,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772778217889": {
+      "ts": 1772778217.9248326,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917326931,
+      "price": 5121.95,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772779404183": {
+      "ts": 1772779404.1920676,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917342240,
+      "price": 5122.43,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772780405543": {
+      "ts": 1772780405.5555136,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917355117,
+      "price": 5114.7,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772780441791": {
+      "ts": 1772780441.7993946,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917355930,
+      "price": 5114.6,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772780530560": {
+      "ts": 1772780530.5723147,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917357323,
+      "price": 5114.29,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772780689693": {
+      "ts": 1772780689.7090352,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917360637,
+      "price": 5111.92,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772780904801": {
+      "ts": 1772780904.831648,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917366023,
+      "price": 5106.95,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772782349191": {
+      "ts": 1772782349.199725,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917391920,
+      "price": 5110.52,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772784331232": {
+      "ts": 1772784331.245028,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917422528,
+      "price": 5123.39,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772786739033": {
+      "ts": 1772786739.0549154,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917475002,
+      "price": 5109.31,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772786855593": {
+      "ts": 1772786855.6752112,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917478476,
+      "price": 5113.98,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772787637880": {
+      "ts": 1772787637.8940618,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917487284,
+      "price": 5107.15,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772787830635": {
+      "ts": 1772787830.6448274,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917491732,
+      "price": 5102.75,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772788139140": {
+      "ts": 1772788139.1629398,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917497642,
+      "price": 5099.31,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772788385009": {
+      "ts": 1772788385.0231938,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917502892,
+      "price": 5095.74,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772788924135": {
+      "ts": 1772788924.1460402,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917515845,
+      "price": 5093.19,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772789780820": {
+      "ts": 1772789780.8353698,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917538484,
+      "price": 5088.02,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772790652987": {
+      "ts": 1772790652.9966233,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917557953,
+      "price": 5087.37,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772790701283": {
+      "ts": 1772790701.3025932,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917559941,
+      "price": 5086.22,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772791957126": {
+      "ts": 1772791957.1364787,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917600893,
+      "price": 5088.61,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772792788412": {
+      "ts": 1772792788.5064733,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917617190,
+      "price": 5087.74,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772794491629": {
+      "ts": 1772794491.6379945,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917648362,
+      "price": 5091.01,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772795068778": {
+      "ts": 1772795068.7876558,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917658854,
+      "price": 5084.31,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772796788179": {
+      "ts": 1772796788.1885037,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917691060,
+      "price": 5092.02,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772797454727": {
+      "ts": 1772797454.7364876,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917702593,
+      "price": 5082.99,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772798044571": {
+      "ts": 1772798044.584616,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917714899,
+      "price": 5078.58,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772798164554": {
+      "ts": 1772798164.5667274,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917722257,
+      "price": 5068.12,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772799005510": {
+      "ts": 1772799005.5191135,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917749157,
+      "price": 5087.96,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772799588954": {
+      "ts": 1772799588.9699485,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917764047,
+      "price": 5094.81,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772800762729": {
+      "ts": 1772800762.7472465,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917788096,
+      "price": 5094.54,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772802027405": {
+      "ts": 1772802027.4254434,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917818301,
+      "price": 5080.11,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772802104803": {
+      "ts": 1772802104.8161423,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917823431,
+      "price": 5073.86,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772802341593": {
+      "ts": 1772802341.6071804,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917834234,
+      "price": 5071.05,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772802487186": {
+      "ts": 1772802487.2070875,
+      "status": "ORDER_SENT",
+      "position_ticket": 1917839377,
+      "price": 5068.77,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772808958788": {
+      "ts": 1772808964.165316,
+      "status": "ORDER_SENT",
+      "position_ticket": 1918187426,
+      "price": 5113.88,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772810816732": {
+      "ts": 1772810822.4389932,
+      "status": "ORDER_SENT",
+      "position_ticket": 1918297230,
+      "price": 5171.01,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772812153578": {
+      "ts": 1772812159.6142504,
+      "status": "ORDER_SENT",
+      "position_ticket": 1918346938,
+      "price": 5144.39,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772821388848": {
+      "ts": 1772821393.4655516,
+      "status": "ORDER_SENT",
+      "position_ticket": 1918613388,
+      "price": 5148.02,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1772822553979": {
+      "ts": 1772822557.9777627,
+      "status": "ORDER_SENT",
+      "position_ticket": 1918640457,
+      "price": 5160.24,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773032377306": {
+      "ts": 1773032383.378193,
+      "status": "ORDER_SENT",
+      "position_ticket": 1919632561,
+      "price": 5091.61,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773033458159": {
+      "ts": 1773033463.3649952,
+      "status": "ORDER_SENT",
+      "position_ticket": 1919656728,
+      "price": 5091.86,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773036467185": {
+      "ts": 1773036472.832594,
+      "status": "ORDER_SENT",
+      "position_ticket": 1919746120,
+      "price": 5132.46,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773039605571": {
+      "ts": 1773039611.6135683,
+      "status": "ORDER_SENT",
+      "position_ticket": 1919817416,
+      "price": 5093.99,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773039808580": {
+      "ts": 1773039814.6021152,
+      "status": "ORDER_SENT",
+      "position_ticket": 1919823438,
+      "price": 5091.29,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773043292155": {
+      "ts": 1773043298.3269083,
+      "status": "ORDER_SENT",
+      "position_ticket": 1919903455,
+      "price": 5104.66,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773043380323": {
+      "ts": 1773043386.33804,
+      "status": "ORDER_SENT",
+      "position_ticket": 1919906115,
+      "price": 5109.18,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773049312960": {
+      "ts": 1773049319.3551328,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920069009,
+      "price": 5114.7,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773049439673": {
+      "ts": 1773049445.883522,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920073813,
+      "price": 5106.98,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773050516988": {
+      "ts": 1773050523.6759636,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920098982,
+      "price": 5106.84,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773050855738": {
+      "ts": 1773050862.5705276,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920105294,
+      "price": 5109.27,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773052961466": {
+      "ts": 1773052967.230973,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920151244,
+      "price": 5100.34,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773055214971": {
+      "ts": 1773055221.1777294,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920200223,
+      "price": 5083.17,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773055243365": {
+      "ts": 1773055249.6499684,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920203090,
+      "price": 5082.77,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773057712347": {
+      "ts": 1773057718.8059816,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920262736,
+      "price": 5096.81,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773058177862": {
+      "ts": 1773058184.863174,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920274156,
+      "price": 5099.52,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773058947427": {
+      "ts": 1773058954.0313563,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920294255,
+      "price": 5104.26,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773059088463": {
+      "ts": 1773059094.7471695,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920297786,
+      "price": 5106.71,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773059493136": {
+      "ts": 1773059499.5500736,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920310318,
+      "price": 5112.43,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773061781724": {
+      "ts": 1773061788.064359,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920375058,
+      "price": 5088.4,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773062500692": {
+      "ts": 1773062507.0002096,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920400455,
+      "price": 5087.96,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773063725500": {
+      "ts": 1773063731.6921241,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920460308,
+      "price": 5080.31,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773064521303": {
+      "ts": 1773064527.5665686,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920503537,
+      "price": 5070.52,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773065003927": {
+      "ts": 1773065010.841827,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920529419,
+      "price": 5082.96,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773066316659": {
+      "ts": 1773066323.4838753,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920596307,
+      "price": 5082.75,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773066733132": {
+      "ts": 1773066740.263555,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920613087,
+      "price": 5089.14,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773067215665": {
+      "ts": 1773067222.4614298,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920630249,
+      "price": 5098.2,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773067404377": {
+      "ts": 1773067411.4989977,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920640422,
+      "price": 5106.21,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773067522239": {
+      "ts": 1773067529.4571788,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920651139,
+      "price": 5115.9,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773068811076": {
+      "ts": 1773068818.3196943,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920703941,
+      "price": 5083.94,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773068926439": {
+      "ts": 1773068933.1373312,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920708337,
+      "price": 5082.54,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773070647421": {
+      "ts": 1773070655.0908442,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920760081,
+      "price": 5095.78,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773072250959": {
+      "ts": 1773072257.8970954,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920794715,
+      "price": 5105.71,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773073698148": {
+      "ts": 1773073705.6849985,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920829269,
+      "price": 5104.41,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773074551646": {
+      "ts": 1773074558.9831676,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920849923,
+      "price": 5110.6,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773075630020": {
+      "ts": 1773075636.3329356,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920870488,
+      "price": 5103.14,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773075962711": {
+      "ts": 1773075968.887483,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920877633,
+      "price": 5103.05,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773076448059": {
+      "ts": 1773076453.3398297,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920888615,
+      "price": 5098.2,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773076776657": {
+      "ts": 1773076782.9073043,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920894746,
+      "price": 5097.46,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773076883108": {
+      "ts": 1773076889.6373131,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920899455,
+      "price": 5094.21,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773080048612": {
+      "ts": 1773080053.5803995,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920964077,
+      "price": 5097.64,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773080346970": {
+      "ts": 1773080352.1422086,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920969701,
+      "price": 5102.24,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773080626790": {
+      "ts": 1773080631.7376034,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920976196,
+      "price": 5106.78,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773081203940": {
+      "ts": 1773081208.3658717,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920985191,
+      "price": 5108.02,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773081309196": {
+      "ts": 1773081314.5379505,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920987922,
+      "price": 5110.71,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773081665826": {
+      "ts": 1773081671.6715589,
+      "status": "ORDER_SENT",
+      "position_ticket": 1920999283,
+      "price": 5119.02,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773082319511": {
+      "ts": 1773082324.7057495,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921007718,
+      "price": 5120.22,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773082390254": {
+      "ts": 1773082395.0391662,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921009544,
+      "price": 5124.29,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773082521797": {
+      "ts": 1773082526.5166738,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921011760,
+      "price": 5126.08,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773084859043": {
+      "ts": 1773084863.765206,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921064763,
+      "price": 5130.74,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773086435582": {
+      "ts": 1773086441.108494,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921095066,
+      "price": 5145.28,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773086795358": {
+      "ts": 1773086799.7883666,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921100692,
+      "price": 5147.31,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773093724725": {
+      "ts": 1773093729.083944,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921137908,
+      "price": 5133.58,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773095055736": {
+      "ts": 1773095059.7125454,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921153990,
+      "price": 5121.7,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773098200235": {
+      "ts": 1773098204.4786978,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921189570,
+      "price": 5151.07,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773099628142": {
+      "ts": 1773099632.3283174,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921202883,
+      "price": 5148.71,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773100821109": {
+      "ts": 1773100825.976702,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921212645,
+      "price": 5136.15,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773102134323": {
+      "ts": 1773102138.7067142,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921231912,
+      "price": 5131.06,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773102746139": {
+      "ts": 1773102751.5604472,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921241481,
+      "price": 5127.06,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773122486309": {
+      "ts": 1773122494.8555264,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921538728,
+      "price": 5177.87,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773123328919": {
+      "ts": 1773123337.2331297,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921558189,
+      "price": 5177.27,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773124042383": {
+      "ts": 1773124050.7041442,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921568076,
+      "price": 5173.72,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773124184975": {
+      "ts": 1773124193.3019934,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921571855,
+      "price": 5175.23,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773124288175": {
+      "ts": 1773124296.4828005,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921573816,
+      "price": 5176.75,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773124391387": {
+      "ts": 1773124398.6416295,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921575197,
+      "price": 5175.7,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773124640604": {
+      "ts": 1773124648.2955647,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921577281,
+      "price": 5175.37,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773124781770": {
+      "ts": 1773124790.0834956,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921579624,
+      "price": 5177.02,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773124886225": {
+      "ts": 1773124894.5139835,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921581601,
+      "price": 5174.85,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773125101818": {
+      "ts": 1773125109.62824,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921584443,
+      "price": 5175.74,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773125964450": {
+      "ts": 1773125970.4616761,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921592341,
+      "price": 5174.87,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773126003551": {
+      "ts": 1773126009.6796663,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921592853,
+      "price": 5174.68,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773126391403": {
+      "ts": 1773126398.254759,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921601026,
+      "price": 5175.19,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773131613862": {
+      "ts": 1773131621.5814092,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921719906,
+      "price": 5186.36,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773138981306": {
+      "ts": 1773138989.287598,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921862434,
+      "price": 5167.73,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773140406306": {
+      "ts": 1773140414.0360603,
+      "status": "ORDER_SENT",
+      "position_ticket": 1921901459,
+      "price": 5177.35,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773144920794": {
+      "ts": 1773144928.8707573,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922006933,
+      "price": 5171.27,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773146719434": {
+      "ts": 1773146726.9054167,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922049752,
+      "price": 5187.57,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773147917015": {
+      "ts": 1773147924.1450367,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922088516,
+      "price": 5194.84,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773153036717": {
+      "ts": 1773153043.8493984,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922295925,
+      "price": 5211.24,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773160519860": {
+      "ts": 1773160526.6604314,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922501485,
+      "price": 5233.82,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773166628884": {
+      "ts": 1773166639.3911955,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922637756,
+      "price": 5197.61,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773180447591": {
+      "ts": 1773180454.5329294,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922834952,
+      "price": 5189.24,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773184215429": {
+      "ts": 1773184225.7027612,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922869714,
+      "price": 5196.23,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773187519180": {
+      "ts": 1773187524.3755124,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922895580,
+      "price": 5190.63,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773191415848": {
+      "ts": 1773191421.5969868,
+      "status": "ORDER_SENT",
+      "position_ticket": 1922953241,
+      "price": 5212.6,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773195305242": {
+      "ts": 1773195311.845458,
+      "status": "ORDER_SENT",
+      "position_ticket": 1923001525,
+      "price": 5201.09,
+      "sltp": "sltp_ok"
+    },
+    "REQ-GOLD-1773198004094": {
+      "ts": 1773198013.192907,
+      "status": "ORDER_SENT",
+      "position_ticket": 1923034696,
+      "price": 5218.79,
+      "sltp": "sltp_ok"
     }
   }
 }
